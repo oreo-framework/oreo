@@ -1,0 +1,46 @@
+# Log and output files
+*.log
+*.txt
+*.out
+*.prof
+*.png
+*.tar.gz
+
+tikv-deploy
+
+# Executables and binaries
+iot-load
+social-load
+order-load
+ycsb-load
+opt-load
+read-load
+length-load
+scale-load
+
+executor
+timeoracle
+ft-executor
+ft-timeoracle
+cassandra_util
+getip
+cmd
+
+# Benchmark Result Files
+epoxy-data-*.md
+!epoxy-data-template.md
+cpu-usage.md
+timeline_plot.pdf
+
+# Python environment
+.venv/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db

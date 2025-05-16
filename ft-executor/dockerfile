@@ -1,0 +1,11 @@
+FROM alpine:latest
+
+WORKDIR /app
+
+COPY ./ft-executor /app/
+
+RUN mkdir -p /app/config
+
+RUN chmod +x /app/ft-executor
+
+ENTRYPOINT ["/app/ft-executor"]

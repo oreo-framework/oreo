@@ -1,0 +1,38 @@
+# IDE and Editor files
+.idea/
+.intellij/
+*.iml
+.vscode/
+.VSCodeCounter
+
+# OS generated files
+.DS_Store
+
+# Python files
+.venv
+.ipynb_checkpoints/
+
+# Logs and data
+*.log
+*.csv
+
+# Coverage and testing
+cover.out
+cover.html
+coverage.out
+coverage.html
+trace.out
+
+# Project documentation
+design-note.md
+
+# Build output and binaries
+/benchmarks/cmd/cmd
+/component/component
+
+executor/executor
+oreo-executor-image.tar.gz
+
+
+tc-test
+!tc-test/
