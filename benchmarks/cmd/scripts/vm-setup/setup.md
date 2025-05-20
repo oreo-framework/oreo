@@ -323,11 +323,6 @@ docker volume prune
 
 - Run
 
-> 注意查看配置文件中的 TxnOperationGroup, zipfian 等参数
-
-- TxnOperationGroup = 8
-- zipfian_constant  = 0.8
-
 ```shell
 ./opt-full.sh -wl RMW -v -r
 
