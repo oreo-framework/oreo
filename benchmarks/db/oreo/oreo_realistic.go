@@ -1,19 +1,19 @@
 package oreo
 
 import (
-	"benchmark/pkg/benconfig"
-	"benchmark/ycsb"
 	"context"
 	"log"
 
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/cassandra"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/couchdb"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/dynamodb"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/mongo"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/redis"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/tikv"
-	"github.com/oreo-dtx-lab/oreo/pkg/timesource"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"benchmark/pkg/benconfig"
+	"benchmark/ycsb"
+	"github.com/kkkzoz/oreo/pkg/datastore/cassandra"
+	"github.com/kkkzoz/oreo/pkg/datastore/couchdb"
+	"github.com/kkkzoz/oreo/pkg/datastore/dynamodb"
+	"github.com/kkkzoz/oreo/pkg/datastore/mongo"
+	"github.com/kkkzoz/oreo/pkg/datastore/redis"
+	"github.com/kkkzoz/oreo/pkg/datastore/tikv"
+	"github.com/kkkzoz/oreo/pkg/timesource"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 var _ ycsb.DBCreator = (*OreoRedisCreator)(nil)
@@ -41,8 +41,12 @@ type OreoRealisticDatastore struct {
 	mode                string
 }
 
-func NewOreoRealisticDatastore(connMap map[string]txn.Connector, globalDatastoreName string, isRemote bool, mode string) *OreoRealisticDatastore {
-
+func NewOreoRealisticDatastore(
+	connMap map[string]txn.Connector,
+	globalDatastoreName string,
+	isRemote bool,
+	mode string,
+) *OreoRealisticDatastore {
 	return &OreoRealisticDatastore{
 		isRemote:            isRemote,
 		connMap:             connMap,
@@ -80,6 +84,12 @@ func (r *OreoRealisticDatastore) Start() error {
 			mds := mongo.NewMongoDatastore("MongoDB", conn)
 			txn1.AddDatastore(mds)
 			if r.globalDatastoreName == "MongoDB" {
+				txn1.SetGlobalDatastore(mds)
+			}
+		case "MongoDB2":
+			mds := mongo.NewMongoDatastore("MongoDB2", conn)
+			txn1.AddDatastore(mds)
+			if r.globalDatastoreName == "MongoDB2" {
 				txn1.SetGlobalDatastore(mds)
 			}
 		case "CouchDB":
@@ -131,14 +141,22 @@ func (r *OreoRealisticDatastore) Close() error {
 	return nil
 }
 
-func (r *OreoRealisticDatastore) InitThread(ctx context.Context, threadID int, threadCount int) context.Context {
+func (r *OreoRealisticDatastore) InitThread(
+	ctx context.Context,
+	threadID int,
+	threadCount int,
+) context.Context {
 	return ctx
 }
 
 func (r *OreoRealisticDatastore) CleanupThread(ctx context.Context) {
 }
 
-func (r *OreoRealisticDatastore) Read(ctx context.Context, table string, key string) (string, error) {
+func (r *OreoRealisticDatastore) Read(
+	ctx context.Context,
+	table string,
+	key string,
+) (string, error) {
 	key = r.addPrefix(key)
 
 	var value string
@@ -149,12 +167,22 @@ func (r *OreoRealisticDatastore) Read(ctx context.Context, table string, key str
 	return value, nil
 }
 
-func (r *OreoRealisticDatastore) Update(ctx context.Context, table string, key string, value string) error {
+func (r *OreoRealisticDatastore) Update(
+	ctx context.Context,
+	table string,
+	key string,
+	value string,
+) error {
 	key = r.addPrefix(key)
 	return r.txn.Write(table, key, value)
 }
 
-func (r *OreoRealisticDatastore) Insert(ctx context.Context, table string, key string, value string) error {
+func (r *OreoRealisticDatastore) Insert(
+	ctx context.Context,
+	table string,
+	key string,
+	value string,
+) error {
 	key = r.addPrefix(key)
 	return r.txn.Write(table, key, value)
 }

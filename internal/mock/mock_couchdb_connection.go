@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/couchdb"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/pkg/datastore/couchdb"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 var _ txn.Connector = (*MockCouchDBConnection)(nil)
@@ -24,7 +24,8 @@ type MockCouchDBConnection struct {
 }
 
 func NewMockCouchDBConnection(address string, port int, limit int,
-	isReturned bool, networkDelay time.Duration, debugFunc func() error) *MockCouchDBConnection {
+	isReturned bool, networkDelay time.Duration, debugFunc func() error,
+) *MockCouchDBConnection {
 	conn := couchdb.NewCouchDBConnection(&couchdb.ConnectionOptions{
 		Address: fmt.Sprintf("http://admin:password@%s:%d", address, port),
 		DBName:  "oreo",
@@ -52,14 +53,18 @@ func (m *MockCouchDBConnection) Get(name string) (string, error) {
 	return m.CouchDBConnection.Get(name)
 }
 
-func (m *MockCouchDBConnection) ConditionalUpdate(key string, value txn.DataItem, doCreate bool) (string, error) {
+func (m *MockCouchDBConnection) ConditionalUpdate(
+	key string,
+	value txn.DataItem,
+	doCreate bool,
+) (string, error) {
 	time.Sleep(m.networkDelay)
 	defer func() { m.debugCounter--; m.PutTimes++ }()
 	if m.debugCounter == 0 {
 		if m.isReturned {
 			return "", m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.CouchDBConnection.ConditionalUpdate(key, value, doCreate)
@@ -72,7 +77,7 @@ func (m *MockCouchDBConnection) PutItem(key string, value txn.DataItem) (string,
 		if m.isReturned {
 			return "", m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.CouchDBConnection.PutItem(key, value)
@@ -85,7 +90,7 @@ func (m *MockCouchDBConnection) Put(name string, value any) error {
 		if m.isReturned {
 			return m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.CouchDBConnection.Put(name, value)
@@ -98,7 +103,7 @@ func (m *MockCouchDBConnection) Delete(name string) error {
 		if m.isReturned {
 			return m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.CouchDBConnection.Delete(name)

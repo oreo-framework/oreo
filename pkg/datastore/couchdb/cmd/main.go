@@ -7,12 +7,11 @@ import (
 	"time"
 
 	_ "github.com/go-kivik/kivik/v4/couchdb" // The CouchDB driver
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/couchdb"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/pkg/datastore/couchdb"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 func main() {
-
 	// a random string
 	key := randomString()
 	couchItem := couchdb.NewCouchDBItem(txn.ItemOptions{
@@ -76,7 +75,6 @@ func main() {
 	}
 	wg.Wait()
 	fmt.Printf("successNum: %d\n", successNum)
-
 }
 
 func randomString() string {

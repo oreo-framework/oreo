@@ -1,15 +1,17 @@
 package workload
 
 import (
-	"benchmark/pkg/benconfig"
-	"benchmark/pkg/generator"
-	"benchmark/pkg/util"
-	"benchmark/ycsb"
 	"context"
 	"fmt"
 	"log"
 	"math/rand"
 	"sync"
+	"time"
+
+	"benchmark/pkg/benconfig"
+	"benchmark/pkg/generator"
+	"benchmark/pkg/util"
+	"benchmark/ycsb"
 )
 
 type IotWorkload struct {
@@ -41,12 +43,16 @@ func NewIotWorkload(wp *WorkloadParameter) *IotWorkload {
 }
 
 func (wl *IotWorkload) DataIngestion(ctx context.Context, db ycsb.TransactionDB) {
-
 	sensor_id := wl.NextKeyName()
 
 	db.Start()
 	for i := 1; i <= wl.seriesCnt; i++ {
-		db.Update(ctx, "Redis", fmt.Sprintf("%v:%v:%d", wl.RedisNamespace, sensor_id, i), wl.RandomValue())
+		db.Update(
+			ctx,
+			"Redis",
+			fmt.Sprintf("%v:%v:%d", wl.RedisNamespace, sensor_id, i),
+			wl.RandomValue(),
+		)
 	}
 	db.Commit()
 }
@@ -58,35 +64,48 @@ func (wl *IotWorkload) DataProcessing(ctx context.Context, db ycsb.TransactionDB
 
 	sum := int64(0)
 	for i := 1; i <= wl.seriesCnt; i++ {
-		value, err := db.Read(ctx, "Redis", fmt.Sprintf("%v:%v:%d", wl.RedisNamespace, sensor_id, i))
+		value, err := db.Read(
+			ctx,
+			"Redis",
+			fmt.Sprintf("%v:%v:%d", wl.RedisNamespace, sensor_id, i),
+		)
 		if err != nil {
 			continue
 		}
 		sum += util.ToInt(value)
 	}
-	db.Update(ctx, "MongoDB", fmt.Sprintf("%v:%v", wl.MongoDBNamespace, sensor_id), util.ToString(sum))
+	db.Update(
+		ctx,
+		"MongoDB2",
+		fmt.Sprintf("%v:%v", wl.MongoDBNamespace, sensor_id),
+		util.ToString(sum),
+	)
 	db.Commit()
 }
 
 func (wl *IotWorkload) DataQuery(ctx context.Context, db ycsb.TransactionDB) {
-
 	db.Start()
 	for i := 1; i <= wl.seriesCnt; i++ {
 		sensor_id := wl.NextKeyName()
-		db.Read(ctx, "MongoDB", fmt.Sprintf("%v:%v", wl.MongoDBNamespace, sensor_id))
+		db.Read(ctx, "MongoDB2", fmt.Sprintf("%v:%v", wl.MongoDBNamespace, sensor_id))
 	}
 	db.Commit()
 }
 
 func (wl *IotWorkload) Load(ctx context.Context, opCount int,
-	db ycsb.DB) {
+	db ycsb.DB,
+) {
 	txnDB, ok := db.(ycsb.TransactionDB)
 	if !ok {
 		fmt.Println("The DB does not support transactions")
 		return
 	}
 	if opCount%benconfig.MaxLoadBatchSize != 0 {
-		log.Fatalf("opCount should be a multiple of MaxLoadBatchSize, opCount: %d, MaxLoadBatchSize: %d", opCount, benconfig.MaxLoadBatchSize)
+		log.Fatalf(
+			"opCount should be a multiple of MaxLoadBatchSize, opCount: %d, MaxLoadBatchSize: %d",
+			opCount,
+			benconfig.MaxLoadBatchSize,
+		)
 	}
 
 	round := opCount / benconfig.MaxLoadBatchSize
@@ -114,8 +133,8 @@ func (wl *IotWorkload) Load(ctx context.Context, opCount int,
 }
 
 func (wl *IotWorkload) Run(ctx context.Context, opCount int,
-	db ycsb.DB) {
-
+	db ycsb.DB,
+) {
 	txnDB, ok := db.(ycsb.TransactionDB)
 	if !ok {
 		fmt.Println("The DB does not support transactions")
@@ -133,8 +152,9 @@ func (wl *IotWorkload) Run(ctx context.Context, opCount int,
 		default:
 			panic("Invalid task")
 		}
+		restTime := rand.Intn(5) + 5
+		time.Sleep(time.Duration(restTime) * time.Millisecond)
 	}
-
 }
 
 func (wl *IotWorkload) Cleanup() {}

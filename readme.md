@@ -1,10 +1,10 @@
-# Oreo: A High-Performance and Scalable Transactions Framework across Heterogeneous NoSQL Data Stores
+# Oreo: A Decentralized Coordinated Transaction Framework across NoSQL Data Stores
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/oreo-dtx-lab/oreo)](https://goreportcard.com/report/github.com/oreo-framework/oreo)
 [![Go Reference](https://pkg.go.dev/badge/github.com/oreo-dtx-lab/oreo.svg)](https://pkg.go.dev/github.com/oreo-framework/oreo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This repository is dedicated to sharing the implementation of Oreo for the EuroSys 2026 paper entitled: Oreo: A High-Performance and Scalable Transactions Framework across Heterogeneous NoSQL Data Stores.
+This repository is dedicated to sharing the implementation of Oreo for the ICDE 2026 paper entitled: Oreo: A Decentralized Coordinated Transaction Framework across NoSQL Data Stores.
 
 <div align="center">
 
@@ -13,7 +13,7 @@ This repository is dedicated to sharing the implementation of Oreo for the EuroS
 
 ## Table of Contents
 
-- [Oreo: A High-Performance and Scalable Transactions Framework across Heterogeneous NoSQL Data Stores](#oreo-a-high-performance-and-scalable-transactions-framework-across-heterogeneous-nosql-data-stores)
+- [Oreo: A Decentralized Coordinated Transaction Framework across NoSQL Data Stores](#oreo-a-decentralized-coordinated-transaction-framework-across-nosql-data-stores)
   - [Table of Contents](#table-of-contents)
   - [Oreo Structure](#oreo-structure)
   - [Project Structure](#project-structure)
@@ -24,9 +24,8 @@ This repository is dedicated to sharing the implementation of Oreo for the EuroS
       - [YCSB](#ycsb)
       - [Realistic Workloads](#realistic-workloads)
         - [IOT](#iot)
-        - [Social](#social)
-        - [Order](#order)
-      - [Optimization](#optimization)
+        - [Hotel](#hotel)
+        - [Social Media](#social-media)
       - [Read Strategy](#read-strategy)
       - [FT](#ft)
       - [Scalability](#scalability)
@@ -56,7 +55,7 @@ This repository is dedicated to sharing the implementation of Oreo for the EuroS
 
 ### Topology
 
-At least 5 servers are required, with 1 serving as the Client Node (`node1`) and the other 4 as DB Nodes (`node2` - `node5`). Executors are deployed as containers on the DB Nodes. The timeoracle can be deployed on the DB Nodes or on separate dedicated nodes.
+At least 7 servers are required, with 3 serving as the Client Node (`node1`) and the other 4 as DB Nodes (`node2` - `node5`). Executors are deployed as containers on the DB Nodes. The timeoracle can be deployed on the DB Nodes or on separate dedicated nodes.
 
 > `node1` acts as the control center of this experiment, so you can clone this repo to your `node1`,
 
@@ -126,11 +125,11 @@ cd oreo/benchmarks/cmd/scripts/setup
 - Run
 
 ```shell
-./ycsb-full.sh -wl A -db MongoDB1,MongoDB2 -v -r
-./ycsb-full.sh -wl F -db MongoDB1,MongoDB2 -v -r
+./ycsb-full.py -wl A -db MongoDB1,MongoDB2 -v -r
+./ycsb-full.py -wl F -db MongoDB1,MongoDB2 -v -r
 
-./ycsb-full.sh -wl A -db Redis,Cassandra -v -r
-./ycsb-full.sh -wl F -db Redis,Cassandra -v -r
+./ycsb-full.py -wl A -db Redis,Cassandra -v -r
+./ycsb-full.py -wl F -db Redis,Cassandra -v -r
 ```
 
 > For Epoxy:
@@ -158,64 +157,47 @@ cd oreo/benchmarks/cmd/scripts/setup
 - Run
 
 ```shell
-./realistic-full.sh -wl iot -v -r
+./realistic-full.py -wl iot -v -r
 ```
 
-##### Social
+##### Hotel
 
 - Setup
 
 ```shell
 # Node 2
-./realistic-setup.sh -wl social -id 2
+./realistic-setup.sh -wl hotel -id 2
 # Node 3
-./realistic-setup.sh -wl social -id 3
+./realistic-setup.sh -wl hotel -id 3
 # Node 4
-./realistic-setup.sh -wl social -id 4
+./realistic-setup.sh -wl hotel -id 4
 ```
 
 - Run
 
 ```shell
-./realistic-full.sh -wl social -v -r
+./realistic-full.py -wl hotel -v -r
 ```
 
-##### Order
+##### Social Media
 
 - Setup
 
 ```shell
 # Node 2
-./realistic-setup.sh -wl order -id 2
+./realistic-setup.sh -wl hotel -id 2
 # Node 3
-./realistic-setup.sh -wl order -id 3
+./realistic-setup.sh -wl hotel -id 3
 # Node 4
-./realistic-setup.sh -wl order -id 4
+./realistic-setup.sh -wl hotel -id 4
 # Node 5
-./realistic-setup.sh -wl order -id 5
+./realistic-setup.sh -wl hotel -id 5
 ```
 
 - Run
 
 ```shell
-./realistic-full.sh -wl order -v -r
-```
-
-#### Optimization
-
-- Setup
-
-```shell
-./opt-setup.sh -id 2
-./opt-setup.sh -id 3
-```
-
-- Run
-
-```shell
-./opt-full.sh -wl RMW -v -r
-
-./opt-full.sh -wl RW -v -r
+./realistic-full.py -wl hotel -v -r
 ```
 
 #### Read Strategy
@@ -229,8 +211,6 @@ cd oreo/benchmarks/cmd/scripts/setup
 
 - Run
 
-- TxnOperationGroup = 6
-- zipfian_constant  = 0.9
 
 ```shell
 ./read-full.sh -wl RMW -v -r

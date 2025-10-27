@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
-	"github.com/oreo-dtx-lab/oreo/pkg/config"
+	"github.com/kkkzoz/oreo/pkg/config"
 )
 
 // GetBodyString reads the response body from the provided http.Response
@@ -131,6 +131,7 @@ func AddToString(s string, i int) string {
 	num := ToInt(s) + ToInt(i)
 	return ToString(num)
 }
+
 func FormatErrorStack(stackError *errors.Error) string {
-	return strings.Replace(stackError.ErrorStack(), "\\n", "\n", -1)
+	return strings.ReplaceAll(stackError.ErrorStack(), "\\n", "\n")
 }

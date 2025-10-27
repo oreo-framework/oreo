@@ -1,11 +1,17 @@
 #!/bin/bash
 
-servers=("10.206.206.3" "10.206.206.4" "10.206.206.5" "10.206.206.6")
-# servers=("10.206.206.3" "10.206.206.4" "10.206.206.5")
+if [ "$1" == "3" ]; then
+    servers=(node2 node3)
+elif [ "$1" == "5" ]; then
+    servers=(node2 node3 node4 node5)
+elif [ "$1" == "6" ]; then
+    servers=(node2 node3 node4 node5 node6)
+else
+    echo "Usage: $0 [3|5|6]"
+    exit 1
+fi
 
-# 用户名
 user="root"
-
 
 for server in "${servers[@]}"; do
     echo "========================================"
@@ -14,7 +20,7 @@ for server in "${servers[@]}"; do
 
     ssh "$user"@"$server" <<EOF
     echo "执行命令: sudo yum install -y docker-ce"
-    sudo yum install -y docker-ce
+    sudo yum install -y docker-ce iproute-tc
     if [ $? -ne 0 ]; then
         echo "命令执行失败: sudo yum install -y docker-ce"
         exit 1

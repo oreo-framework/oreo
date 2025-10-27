@@ -5,16 +5,17 @@ import (
 	"cmp"
 	"fmt"
 	"log"
+	"math"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-errors/errors"
-	"github.com/oreo-dtx-lab/oreo/internal/util"
-	"github.com/oreo-dtx-lab/oreo/pkg/config"
-	"github.com/oreo-dtx-lab/oreo/pkg/logger"
-	"github.com/oreo-dtx-lab/oreo/pkg/serializer"
+	"github.com/kkkzoz/oreo/internal/util"
+	"github.com/kkkzoz/oreo/pkg/config"
+	"github.com/kkkzoz/oreo/pkg/logger"
+	"github.com/kkkzoz/oreo/pkg/serializer"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -34,7 +35,6 @@ type PredicateInfo struct {
 
 // Datastore represents a datastorer implementation using the underlying connector.
 type Datastore struct {
-
 	// Name is the name of the datastore.
 	Name string
 
@@ -104,7 +104,6 @@ func (r *Datastore) Start() error {
 
 // Read reads a record from the Datastore.
 func (r *Datastore) Read(key string, value any) error {
-
 	// if the record is in the writeCache
 	if item, ok := r.writeCache[key]; ok {
 		// if the record is marked as deleted
@@ -122,7 +121,6 @@ func (r *Datastore) Read(key string, value any) error {
 	} else {
 		return r.readFromConn(key, value)
 	}
-
 }
 
 func (r *Datastore) readFromRemote(key string, value any) error {
@@ -184,7 +182,9 @@ func (r *Datastore) readFromConn(key string, value any) error {
 				// If it is not put into the cache, the record is invisible for prepare phase
 				// so the code will regard it as a new record
 				// and create a new record in the prepare phase (set `doCreate` to true)
+				r.mu.Lock()
 				r.readCache[curItem.Key()] = curItem
+				r.mu.Unlock()
 				errMsg := "key not found because item is already deleted in " + r.Name
 				return errors.New(errMsg)
 			}
@@ -196,7 +196,9 @@ func (r *Datastore) readFromConn(key string, value any) error {
 				return err
 			}
 		}
+		r.mu.Lock()
 		r.readCache[curItem.Key()] = curItem
+		r.mu.Unlock()
 		return nil
 	}
 
@@ -252,7 +254,7 @@ func (r *Datastore) basicVisibilityProcessor(item DataItem) (DataItem, error) {
 				// if all the group keys are in COMMITTED state
 				// Items in PREPARED state do not contain a valid TValid
 				// update its TCommit first
-				tCommit := int64(0)
+				tCommit := int64(math.MinInt64)
 				for _, gk := range groupKeyList {
 					tCommit = max(tCommit, gk.TCommit)
 				}
@@ -270,7 +272,9 @@ func (r *Datastore) basicVisibilityProcessor(item DataItem) (DataItem, error) {
 		if item.TLease().Before(time.Now()) {
 			successNum := r.Txn.CreateGroupKeyFromItem(item, config.ABORTED)
 			if successNum == 0 {
-				return nil, fmt.Errorf("failed to rollback the record because none of the group keys are created")
+				return nil, fmt.Errorf(
+					"failed to rollback the record because none of the group keys are created",
+				)
 				// if err.Error() == "key exists" {
 				// 	if curState == config.COMMITTED {
 				// 		return nil, errors.New("rollback failed because the corresponding transaction has committed")
@@ -397,7 +401,6 @@ func (r *Datastore) Write(key string, value any) error {
 //
 // The item is then added to the write cache.
 func (r *Datastore) writeToCache(cacheItem DataItem) error {
-
 	// check if it follows read-modified-commit pattern
 	if oldItem, ok := r.readCache[cacheItem.Key()]; ok {
 		cacheItem.SetVersion(oldItem.Version())
@@ -434,15 +437,11 @@ func (r *Datastore) Delete(key string) error {
 
 // doConditionalUpdate performs the real conditonal update according to item's state
 func (r *Datastore) doConditionalUpdate(cacheItem DataItem, dbItem DataItem) error {
-
 	newItem, err := r.updateMetadata(cacheItem, dbItem)
 	if err != nil {
 		return err
 	}
-	doCreate := false
-	if dbItem == nil || dbItem.Empty() {
-		doCreate = true
-	}
+	doCreate := dbItem == nil || dbItem.Empty()
 	newVer, err := r.conn.ConditionalUpdate(newItem.Key(), newItem, doCreate)
 	if err != nil {
 		return err
@@ -463,13 +462,17 @@ func (r *Datastore) doConditionalUpdate(cacheItem DataItem, dbItem DataItem) err
 func (r *Datastore) conditionalUpdate(cacheItem DataItem) error {
 	debugStart := time.Now()
 	defer func() {
-		logger.Log.Debugw("Datastore.conditionalUpdate() finishes", "LatencyInFunc", time.Since(debugStart))
+		logger.Log.Debugw(
+			"Datastore.conditionalUpdate() finishes",
+			"LatencyInFunc",
+			time.Since(debugStart),
+		)
 	}()
 
 	// if the cacheItem follows read-modified-write pattern,
 	// it already has a valid version, we can skip the read step.
 	if cacheItem.Version() != "" {
-		dbItem, _ := r.readCache[cacheItem.Key()]
+		dbItem := r.readCache[cacheItem.Key()]
 		return r.doConditionalUpdate(cacheItem, dbItem)
 	}
 
@@ -480,7 +483,9 @@ func (r *Datastore) conditionalUpdate(cacheItem DataItem) error {
 			return err
 		}
 	}
-	dbItem, _ := r.readCache[cacheItem.Key()]
+	r.mu.Lock()
+	dbItem := r.readCache[cacheItem.Key()]
+	r.mu.Unlock()
 	// if the record is dropped by the repeatable read rule
 	if res, ok := r.invisibleSet[cacheItem.Key()]; ok && res {
 		dbItem = nil
@@ -499,7 +504,6 @@ func (r *Datastore) conditionalUpdate(cacheItem DataItem) error {
 //
 // If the length of the linked list is less than or equal to the maximum record length, it returns the input DataItem as is.
 func (r *Datastore) truncate(item DataItem, targetLen int) (DataItem, error) {
-
 	if item.LinkedLen() <= targetLen {
 		return item, nil
 	}
@@ -538,12 +542,10 @@ func (r *Datastore) truncate(item DataItem, targetLen int) (DataItem, error) {
 		tarItem = item
 	}
 	return tarItem, nil
-
 }
 
 // updateMetadata updates the metadata of a DataItem by comparing it with the oldItem.
 func (r *Datastore) updateMetadata(newItem DataItem, oldItem DataItem) (DataItem, error) {
-
 	maxLen := config.Config.MaxRecordLength
 
 	if oldItem == nil {
@@ -575,7 +577,6 @@ func (r *Datastore) updateMetadata(newItem DataItem, oldItem DataItem) (DataItem
 }
 
 func (r *Datastore) rollbackFromConn(key string) error {
-
 	item, err := r.conn.GetItem(key)
 	if err != nil {
 		return err
@@ -591,7 +592,9 @@ func (r *Datastore) rollbackFromConn(key string) error {
 	if item.TLease().Before(time.Now()) {
 		successNum := r.Txn.CreateGroupKeyFromItem(item, config.ABORTED)
 		if successNum == 0 {
-			return fmt.Errorf("failed to rollback the record because none of the group keys are created")
+			return fmt.Errorf(
+				"failed to rollback the record because none of the group keys are created",
+			)
 		}
 		_, err = r.rollback(item)
 		return err
@@ -600,7 +603,6 @@ func (r *Datastore) rollbackFromConn(key string) error {
 }
 
 func (r *Datastore) validate() error {
-
 	if config.Config.ReadStrategy == config.Pessimistic {
 		return nil
 	}
@@ -649,7 +651,6 @@ func (r *Datastore) validate() error {
 
 // Prepare prepares the Datastore for commit.
 func (r *Datastore) Prepare() (int64, error) {
-
 	items := make([]DataItem, 0, len(r.writeCache))
 	for _, v := range r.writeCache {
 		v.SetGroupKeyList(strings.Join(r.Txn.GroupKeyUrls, ","))
@@ -657,7 +658,7 @@ func (r *Datastore) Prepare() (int64, error) {
 	}
 
 	if len(items) == 0 {
-		return 0, nil
+		return -1, nil
 	}
 
 	if config.Debug.NativeMode {
@@ -708,7 +709,7 @@ func (r *Datastore) prepareInNative(items []DataItem) (int64, error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cacheItem, _ := r.readCache[item.Key()]
+			cacheItem := r.readCache[item.Key()]
 			item, aErr := r.updateMetadata(item, cacheItem)
 			if aErr != nil {
 				err = aErr
@@ -728,7 +729,7 @@ func (r *Datastore) prepareInRemote(items []DataItem) (int64, error) {
 	// for those whose version is clear, update their metadata
 	for _, item := range items {
 		if item.Version() != "" {
-			dbItem, _ := r.readCache[item.Key()]
+			dbItem := r.readCache[item.Key()]
 			newItem, err := r.updateMetadata(item, dbItem)
 			if err != nil {
 				return 0, errors.Errorf("UpdateMetadata failed: %v", err)
@@ -742,8 +743,19 @@ func (r *Datastore) prepareInRemote(items []DataItem) (int64, error) {
 	}
 
 	verMap, tCommit, err := r.Txn.RemotePrepare(r.Name, items, r.validationSet)
-	logger.Log.Debugw("Remote prepare Result",
-		"TxnId", r.Txn.TxnId, "verMap", verMap, "err", err, "Latency", time.Since(r.Txn.debugStart), "Topic", "CheckPoint")
+	logger.Log.Debugw(
+		"Remote prepare Result",
+		"TxnId",
+		r.Txn.TxnId,
+		"verMap",
+		verMap,
+		"err",
+		err,
+		"Latency",
+		time.Since(r.Txn.debugStart),
+		"Topic",
+		"CheckPoint",
+	)
 	if err != nil {
 		return 0, errors.Join(errors.New("Remote prepare failed"), err)
 	}
@@ -784,7 +796,7 @@ func (r *Datastore) Commit() error {
 			return err
 		})
 	}
-	eg.Wait()
+	_ = eg.Wait() // errors are ignored
 	logger.Log.Debugw("Datastore.Commit() finishes", "TxnId", r.Txn.TxnId)
 	return nil
 }
@@ -810,7 +822,6 @@ func (r *Datastore) commitInRemote() error {
 //
 // It returns an error if there is any issue during the rollback process.
 func (r *Datastore) Abort(hasCommitted bool) error {
-
 	if !hasCommitted {
 		r.clear()
 		return nil
@@ -832,7 +843,9 @@ func (r *Datastore) Abort(hasCommitted bool) error {
 		// if the record has been modified by this transaction
 		curGroupKeyList := strings.Join(r.Txn.GroupKeyUrls, ",")
 		if item.GroupKeyList() == curGroupKeyList {
-			r.rollback(item)
+			// we don't care whether the rollback is successful or not
+			// if rollback fails, it means there is another txn is rolling back for us
+			_, _ = r.rollback(item)
 		}
 	}
 	r.clear()
@@ -854,7 +867,6 @@ func (r *Datastore) OnePhaseCommit() error {
 // and metadata that found in field Prev.
 // if the `Prev` is empty, it simply deletes the record
 func (r *Datastore) rollback(item DataItem) (DataItem, error) {
-
 	if item.Prev() == "" {
 		item.SetIsDeleted(true)
 		item.SetTxnState(config.COMMITTED)
@@ -885,7 +897,6 @@ func (r *Datastore) rollback(item DataItem) (DataItem, error) {
 
 // rollForward makes the record metadata with COMMITTED state
 func (r *Datastore) rollForward(item DataItem) (DataItem, error) {
-
 	item.SetTxnState(config.COMMITTED)
 	newVer, err := r.conn.ConditionalUpdate(item.Key(), item, false)
 	if err != nil {

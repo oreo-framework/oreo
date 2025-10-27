@@ -1,43 +1,45 @@
 package main
 
 import (
-	"benchmark/pkg/benconfig"
-	"benchmark/pkg/client"
-	"benchmark/pkg/measurement"
-	"benchmark/pkg/workload"
-	"benchmark/ycsb"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"runtime/pprof"
-	"runtime/trace"
+	"strings"
 	"time"
 
+	"benchmark/pkg/benconfig"
+	"benchmark/pkg/client"
+	"benchmark/pkg/measurement"
+	"benchmark/pkg/workload"
+	"benchmark/ycsb"
 	"github.com/cristalhq/aconfig"
 	"github.com/cristalhq/aconfig/aconfigyaml"
-	cfg "github.com/oreo-dtx-lab/oreo/pkg/config"
-	"github.com/oreo-dtx-lab/oreo/pkg/network"
+	cfg "github.com/kkkzoz/oreo/pkg/config"
+	"github.com/kkkzoz/oreo/pkg/discovery"
+	"github.com/kkkzoz/oreo/pkg/network"
 )
+
+var benConfig = benconfig.BenchmarkConfig{}
 
 var (
-	benConfig = benconfig.BenchmarkConfig{}
+	help               = flag.Bool("help", false, "Show help")
+	dbType             = ""
+	mode               = "load"
+	workloadType       = ""
+	workloadConfigPath = ""
+	benConfigPath      = ""
+	threadNum          = 1
+	traceFlag          = false
+	pprofFlag          = false
+	isRemote           = false
+	preset             = ""
+	readStrategy       = ""
+	ablationLevel      = 4
+	isFaultTolerance   = false
+	zipfianConstant    = 0.0
 )
-
-var help = flag.Bool("help", false, "Show help")
-var dbType = ""
-var mode = "load"
-var workloadType = ""
-var workloadConfigPath = ""
-var benConfigPath = ""
-var threadNum = 1
-var traceFlag = false
-var pprofFlag = false
-var isRemote = false
-var preset = ""
-var readStrategy = ""
-var ablationLevel = 4
-var isFaultTolerance = false
 
 func main() {
 	parseAndValidateFlag()
@@ -55,15 +57,16 @@ func main() {
 	}
 
 	if traceFlag {
-		f, err := os.Create("ben_trace.out")
-		if err != nil {
-			panic(err)
-		}
-		err = trace.Start(f)
-		if err != nil {
-			panic(err)
-		}
-		defer trace.Stop()
+		// f, err := os.Create("ben_trace.out")
+		// if err != nil {
+		// 	panic(err)
+		// }
+		// err = trace.Start(f)
+		// if err != nil {
+		// 	panic(err)
+		// }
+		// defer trace.Stop()
+		cfg.Debug.RuntimeAnalysisMode = true
 	}
 
 	wp := loadConfig()
@@ -71,6 +74,22 @@ func main() {
 	// Wait for executor connections
 	log.Println("Waiting 5s for executor connections...")
 	time.Sleep(5 * time.Second)
+
+	dbs := strings.Split(workloadType, ",")
+
+	httpClient := benconfig.GlobalClient
+	for _, db := range dbs {
+		if db == "iot" || db == "hotel" || db == "social" {
+			db = "Redis"
+		}
+		addr, err := httpClient.GetServerAddr(db)
+		if err != nil {
+			log.Fatalf("Cannot find executor address for db %s: %v", db, err)
+		}
+
+		fmt.Printf("%s\n", addr)
+	}
+
 	log.Println("RUN!!!!")
 
 	switch preset {
@@ -98,7 +117,6 @@ func main() {
 		cfg.Config.AsyncLevel = 2
 	}
 	cfg.Config.LeaseTime = 1000 * time.Millisecond
-	cfg.Config.MaxRecordLength = 2
 
 	switch readStrategy {
 	case "p":
@@ -126,7 +144,7 @@ func main() {
 
 	switch mode {
 	case "load":
-		cfg.Config.ConcurrentOptimizationLevel = 2
+		// cfg.Config.ConcurrentOptimizationLevel = 2
 		if benconfig.MaxLoadBatchSize == 0 {
 			log.Fatalf("MaxLoadBatchSize should be specified")
 		}
@@ -155,7 +173,6 @@ func main() {
 	if mode == "load" {
 		time.Sleep(2 * time.Second)
 	}
-
 }
 
 // func warmUpHttpClient() {
@@ -232,9 +249,12 @@ func createWorkload(wp *workload.WorkloadParameter) workload.Workload {
 		case "iot":
 			fmt.Println("This is a IoT workload")
 			return workload.NewIotWorkload(wp)
+		case "hotel":
+			fmt.Println("This is a hotel reservation workload")
+			return workload.NewHotelWorkload(wp)
 		case "social":
 			fmt.Println("This is a social network workload")
-			return workload.NewSocialWorkload(wp)
+			return workload.NewSocialNetworkWorkload(wp)
 		case "order":
 			fmt.Println("This is a order workload")
 			return workload.NewOrderWorkload(wp)
@@ -246,7 +266,11 @@ func createWorkload(wp *workload.WorkloadParameter) workload.Workload {
 	}
 }
 
-func generateClient(wl *workload.Workload, wp *workload.WorkloadParameter, dbName string) *client.Client {
+func generateClient(
+	wl *workload.Workload,
+	wp *workload.WorkloadParameter,
+	dbName string,
+) *client.Client {
 	if dbType == "" {
 		panic("DBType should be specified")
 	}
@@ -395,7 +419,6 @@ func generateClient(wl *workload.Workload, wp *workload.WorkloadParameter, dbNam
 }
 
 func parseAndValidateFlag() {
-
 	flag.StringVar(&dbType, "d", "", "DB type")
 	flag.StringVar(&mode, "m", "load", "Mode: load or run")
 	flag.StringVar(&workloadType, "wl", "", "Workload type")
@@ -409,6 +432,7 @@ func parseAndValidateFlag() {
 	flag.StringVar(&readStrategy, "read", "p", "Read Strategy")
 	flag.IntVar(&ablationLevel, "ab", 4, "Ablation level")
 	flag.BoolVar(&isFaultTolerance, "ft", false, "Enable fault tolerance benchmark mode")
+	flag.Float64Var(&zipfianConstant, "zipf", 0, "Zipfian constant")
 	flag.Parse()
 
 	if *help {
@@ -424,7 +448,6 @@ func parseAndValidateFlag() {
 		panic("ThreadNum should be a positive integer")
 	}
 	benconfig.GlobalIsFaultTolerance = isFaultTolerance
-
 }
 
 func displayBenchmarkInfo() {
@@ -435,9 +458,7 @@ func displayBenchmarkInfo() {
 	fmt.Printf("ThreadNum: %d\n", threadNum)
 	fmt.Printf("Remote Mode: %v\n", isRemote)
 	fmt.Printf("Read Strategy: %v\n", readStrategy)
-	fmt.Printf("ConcurrentOptimizationLevel: %d\nAsyncLevel: %d\nMaxOutstandingRequest: %d\nMaxRecordLength: %d\n",
-		cfg.Config.ConcurrentOptimizationLevel, cfg.Config.AsyncLevel,
-		cfg.Config.MaxOutstandingRequest, cfg.Config.MaxRecordLength)
+	fmt.Printf("MaxRecordLength: %d\n", cfg.Config.MaxRecordLength)
 	fmt.Printf("HTTPAdditionalLatency: %v ConnAdditionalLatency: %v\n",
 		cfg.Debug.HTTPAdditionalLatency, cfg.Debug.ConnAdditionalLatency)
 	fmt.Printf("LeaseTime: %v\n", cfg.Config.LeaseTime)
@@ -446,7 +467,6 @@ func displayBenchmarkInfo() {
 }
 
 func loadConfig() *workload.WorkloadParameter {
-
 	bcLoader := aconfig.LoaderFor(&benConfig, aconfig.Config{
 		SkipDefaults:       true,
 		SkipFiles:          false,
@@ -465,7 +485,9 @@ func loadConfig() *workload.WorkloadParameter {
 	}
 
 	benConfig.Latency = time.Duration(benConfig.LatencyValue) * time.Millisecond
-	benConfig.FaultToleranceRequestInterval = time.Duration(benConfig.FaultToleranceRequestIntervalValue) * time.Millisecond
+	benConfig.FaultToleranceRequestInterval = time.Duration(
+		benConfig.FaultToleranceRequestIntervalValue,
+	) * time.Millisecond
 
 	benconfig.ExecutorAddressMap = benConfig.ExecutorAddressMap
 	benconfig.TimeOracleUrl = benConfig.TimeOracleUrl
@@ -489,10 +511,25 @@ func loadConfig() *workload.WorkloadParameter {
 		return nil
 	}
 	benconfig.MaxLoadBatchSize = wp.MaxLoadBatchSize
-	benconfig.GlobalClient, _ = network.NewClient(":9000")
+	discoveryConfig := &discovery.ServiceDiscoveryConfig{
+		Type: discovery.HTTPDiscovery,
+		HTTP: &discovery.HTTPDiscoveryConfig{
+			RegistryPort: ":9000",
+		},
+	}
+	benconfig.GlobalClient, _ = network.NewClient(discoveryConfig)
 	// WorkloadParameter's config takes precedence over BenchmarkConfig
 	if wp.ZipfianConstant != 0 {
 		benconfig.ZipfianConstant = wp.ZipfianConstant
+	}
+
+	if wp.MaxRecordLength != 0 {
+		cfg.Config.MaxRecordLength = wp.MaxRecordLength
+	}
+
+	// commandline flag has the highest precedence
+	if zipfianConstant != 0 {
+		benconfig.ZipfianConstant = zipfianConstant
 	}
 
 	return wp

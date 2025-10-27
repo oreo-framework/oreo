@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	mong "github.com/oreo-dtx-lab/oreo/pkg/datastore/mongo"
+	mong "github.com/kkkzoz/oreo/pkg/datastore/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -14,12 +14,10 @@ import (
 const uri = "mongodb://localhost:27017"
 
 func main() {
-
 	opts := options.Client().ApplyURI(uri)
 
 	// Create a new client and connect to the server
 	client, err := mongo.Connect(context.TODO(), opts)
-
 	if err != nil {
 		panic(err)
 	}

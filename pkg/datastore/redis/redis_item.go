@@ -5,30 +5,30 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/oreo-dtx-lab/oreo/internal/util"
-	"github.com/oreo-dtx-lab/oreo/pkg/config"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/internal/util"
+	"github.com/kkkzoz/oreo/pkg/config"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 var _ txn.DataItem = (*RedisItem)(nil)
 
 type RedisItem struct {
-	RKey          string       `redis:"Key" json:"Key"`
-	RValue        string       `redis:"Value" json:"Value"`
+	RKey          string       `redis:"Key"          json:"Key"`
+	RValue        string       `redis:"Value"        json:"Value"`
 	RGroupKeyList string       `redis:"GroupKeyList" json:"GroupKeyList"`
-	RTxnState     config.State `redis:"TxnState" json:"TxnState"`
-	RTValid       int64        `redis:"TValid" json:"TValid"`
-	RTLease       time.Time    `redis:"TLease" json:"TLease"`
-	RPrev         string       `redis:"Prev" json:"Prev"`
-	RLinkedLen    int          `redis:"LinkedLen" json:"LinkedLen"`
-	RIsDeleted    bool         `redis:"IsDeleted" json:"IsDeleted"`
-	RVersion      string       `redis:"Version" json:"Version"`
+	RTxnState     config.State `redis:"TxnState"     json:"TxnState"`
+	RTValid       int64        `redis:"TValid"       json:"TValid"`
+	RTLease       time.Time    `redis:"TLease"       json:"TLease"`
+	RPrev         string       `redis:"Prev"         json:"Prev"`
+	RLinkedLen    int          `redis:"LinkedLen"    json:"LinkedLen"`
+	RIsDeleted    bool         `redis:"IsDeleted"    json:"IsDeleted"`
+	RVersion      string       `redis:"Version"      json:"Version"`
 }
 
 func NewRedisItem(options txn.ItemOptions) *RedisItem {
 	return &RedisItem{
 		RKey:          options.Key,
-		RValue:        options.Value,
+		RValue:        options.Value.(string),
 		RGroupKeyList: options.GroupKeyList,
 		RTxnState:     options.TxnState,
 		RTValid:       options.TValid,

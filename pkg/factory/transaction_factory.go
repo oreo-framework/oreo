@@ -3,8 +3,8 @@ package factory
 import (
 	"errors"
 
-	"github.com/oreo-dtx-lab/oreo/pkg/locker"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/pkg/locker"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 // TransactionFactory represents a factory for creating transactions.
@@ -94,7 +94,6 @@ func NewTransactionFactory(config *TransactionConfig) (*TransactionFactory, erro
 		dateStoreList:    config.DatastoreList,
 		globalDatastore:  config.GlobalDatastore,
 	}, nil
-
 }
 
 // NewTransaction creates a new Transaction object.

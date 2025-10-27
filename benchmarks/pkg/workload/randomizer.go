@@ -1,14 +1,15 @@
 package workload
 
 import (
-	"benchmark/pkg/benconfig"
-	"benchmark/pkg/generator"
-	"benchmark/pkg/util"
-	"benchmark/ycsb"
 	"fmt"
 	"math/rand"
 	"sync"
 	"time"
+
+	"benchmark/pkg/benconfig"
+	"benchmark/pkg/generator"
+	"benchmark/pkg/util"
+	"benchmark/ycsb"
 )
 
 type Randomizer struct {
@@ -75,7 +76,6 @@ func createDatastoreGenerator(wp *WorkloadParameter) *generator.Discrete {
 }
 
 func createTaskGenerator(wp *WorkloadParameter) *generator.Discrete {
-
 	taskChooser := generator.NewDiscrete()
 	if wp.Task1Proportion > 0 {
 		taskChooser.Add(wp.Task1Proportion, 1)
@@ -95,6 +95,21 @@ func createTaskGenerator(wp *WorkloadParameter) *generator.Discrete {
 
 	if wp.Task5Proportion > 0 {
 		taskChooser.Add(wp.Task5Proportion, 5)
+	}
+	if wp.Task6Proportion > 0 {
+		taskChooser.Add(wp.Task6Proportion, 6)
+	}
+	if wp.Task7Proportion > 0 {
+		taskChooser.Add(wp.Task7Proportion, 7)
+	}
+	if wp.Task8Proportion > 0 {
+		taskChooser.Add(wp.Task8Proportion, 8)
+	}
+	if wp.Task9Proportion > 0 {
+		taskChooser.Add(wp.Task9Proportion, 9)
+	}
+	if wp.Task10Proportion > 0 {
+		taskChooser.Add(wp.Task10Proportion, 10)
 	}
 
 	return taskChooser
@@ -163,10 +178,10 @@ func (r *Randomizer) NextKeyNameFromSequence() string {
 }
 
 func (r *Randomizer) buildKeyName(keyNum int64) string {
-
 	prefix := "benchmark"
 	return fmt.Sprintf("%s%0[3]*[2]d", prefix, keyNum, r.zeroPadding)
 }
+
 func (r *Randomizer) BuildRandomValue() string {
 	r.mu.Lock()
 	defer r.mu.Unlock()

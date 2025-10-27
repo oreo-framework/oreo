@@ -132,6 +132,9 @@ Host node4
 Host node5
     HostName 10.206.206.6
     User root
+Host node6
+    HostName 10.206.206.7
+    User root
 
 ```
 
@@ -164,6 +167,8 @@ source .bashrc && go env -w GOPROXY=https://goproxy.cn,direct
 ```shell
 cd oreo/benchmarks/cmd/scripts/vm-setup
 ./setup.sh
+
+../setup/update-essentials.sh 3
 ```
 
 1. 同步数据
@@ -197,11 +202,11 @@ rsync -avP root@FILL:~/oreo ~/Projects/oreo2
 - Run
 
 ```shell
-./ycsb-full.sh -wl A -db MongoDB1,MongoDB2 -v -r
-./ycsb-full.sh -wl F -db MongoDB1,MongoDB2 -v -r
+./ycsb-full.sh -wl A -db MongoDB1,MongoDB2 -v -r --multiple-clients
+./ycsb-full.sh -wl F -db MongoDB1,MongoDB2 -v -r --multiple-clients
 
-./ycsb-full.sh -wl A -db Redis,Cassandra -v -r
-./ycsb-full.sh -wl F -db Redis,Cassandra -v -r
+./ycsb-full.sh -wl A -db Redis,Cassandra -v -r --multiple-clients
+./ycsb-full.sh -wl F -db Redis,Cassandra -v -r --multiple-clients
 ```
 
 #### Epoxy
@@ -322,6 +327,11 @@ docker volume prune
 ```
 
 - Run
+
+> 注意查看配置文件中的 TxnOperationGroup, zipfian 等参数
+
+- TxnOperationGroup = 8
+- zipfian_constant  = 0.8
 
 ```shell
 ./opt-full.sh -wl RMW -v -r

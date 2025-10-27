@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/redis"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/pkg/datastore/redis"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 // MockRedisConnection implements the txn.Connector interface.
@@ -26,7 +26,8 @@ type MockRedisConnection struct {
 }
 
 func NewMockRedisConnection(address string, port int, limit int,
-	isReturned bool, networkDelay time.Duration, debugFunc func() error) *MockRedisConnection {
+	isReturned bool, networkDelay time.Duration, debugFunc func() error,
+) *MockRedisConnection {
 	conn := redis.NewRedisConnection(&redis.ConnectionOptions{
 		Address:  fmt.Sprintf("%s:%d", address, port),
 		Password: "password",
@@ -54,14 +55,18 @@ func (m *MockRedisConnection) Get(name string) (string, error) {
 	return m.RedisConnection.Get(name)
 }
 
-func (m *MockRedisConnection) ConditionalUpdate(key string, value txn.DataItem, doCreate bool) (string, error) {
+func (m *MockRedisConnection) ConditionalUpdate(
+	key string,
+	value txn.DataItem,
+	doCreate bool,
+) (string, error) {
 	time.Sleep(m.networkDelay)
 	defer func() { m.debugCounter--; m.PutTimes++ }()
 	if m.debugCounter == 0 {
 		if m.isReturned {
 			return "", m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.RedisConnection.ConditionalUpdate(key, value, doCreate)
@@ -74,7 +79,7 @@ func (m *MockRedisConnection) PutItem(key string, value txn.DataItem) (string, e
 		if m.isReturned {
 			return "", m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.RedisConnection.PutItem(key, value)
@@ -87,7 +92,7 @@ func (m *MockRedisConnection) Put(name string, value any) error {
 		if m.isReturned {
 			return m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.RedisConnection.Put(name, value)
@@ -100,7 +105,7 @@ func (m *MockRedisConnection) Delete(name string) error {
 		if m.isReturned {
 			return m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.RedisConnection.Delete(name)

@@ -1,12 +1,12 @@
 package network
 
 import (
-	"benchmark/pkg/util"
 	"fmt"
 	"sync"
 	"testing"
 
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"benchmark/pkg/util"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 // MockGroupKeyItem 是 txn.GroupKeyItem 的一个简单模拟。
@@ -141,7 +141,12 @@ func TestConcurrency(t *testing.T) {
 	expectedCacheHit := numGoroutines     // 每个获取都是命中
 	expectedHitRate := float64(expectedCacheHit) / float64(expectedCacheRequest)
 
-	expectedStats := fmt.Sprintf("CacheRequest: %d, CacheHit: %d, HitRate: %.2f", expectedCacheRequest, expectedCacheHit, expectedHitRate)
+	expectedStats := fmt.Sprintf(
+		"CacheRequest: %d, CacheHit: %d, HitRate: %.2f",
+		expectedCacheRequest,
+		expectedCacheHit,
+		expectedHitRate,
+	)
 	if stats != expectedStats {
 		t.Errorf("Expected stats '%s', got '%s'", expectedStats, stats)
 	}
@@ -173,7 +178,12 @@ func TestStatistic(t *testing.T) {
 	expectedCacheHit := 2
 	expectedHitRate := float64(expectedCacheHit) / float64(expectedCacheRequest)
 
-	expectedStats := fmt.Sprintf("CacheRequest: %d, CacheHit: %d, HitRate: %.2f", expectedCacheRequest, expectedCacheHit, expectedHitRate)
+	expectedStats := fmt.Sprintf(
+		"CacheRequest: %d, CacheHit: %d, HitRate: %.2f",
+		expectedCacheRequest,
+		expectedCacheHit,
+		expectedHitRate,
+	)
 	stats := cacher.Statistic()
 	if stats != expectedStats {
 		t.Errorf("Expected stats '%s', got '%s'", expectedStats, stats)

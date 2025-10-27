@@ -10,17 +10,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oreo-dtx-lab/oreo/internal/testutil"
-	"github.com/oreo-dtx-lab/oreo/internal/util"
-	"github.com/oreo-dtx-lab/oreo/pkg/config"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/redis"
-	"github.com/oreo-dtx-lab/oreo/pkg/timesource"
-	trxn "github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/internal/testutil"
+	"github.com/kkkzoz/oreo/internal/util"
+	"github.com/kkkzoz/oreo/pkg/config"
+	"github.com/kkkzoz/oreo/pkg/datastore/redis"
+	"github.com/kkkzoz/oreo/pkg/discovery"
+	"github.com/kkkzoz/oreo/pkg/timesource"
+	trxn "github.com/kkkzoz/oreo/pkg/txn"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	ExecutorAddrMap = map[string][]string{ALL: {"localhost:8000"}}
+	ExecutorAddrMap = map[string][]string{"ALL": {"localhost:8000"}}
 	TimeOracleUrl   = "localhost:8800"
 )
 
@@ -44,7 +45,12 @@ func NewTransactionWithSetup() *trxn.Transaction {
 		Address:  "localhost:6380",
 		Password: "@ljy123456",
 	})
-	client, _ := NewClient("localhost:9000")
+	client, _ := NewClient(&discovery.ServiceDiscoveryConfig{
+		Type: discovery.HTTPDiscovery,
+		HTTP: &discovery.HTTPDiscoveryConfig{
+			RegistryPort: "localhost:9000",
+		},
+	})
 	txn := trxn.NewTransactionWithRemote(client, timesource.NewHybridTimeSource(10, 6))
 	rds := redis.NewRedisDatastore("redis1", conn)
 	txn.AddDatastore(rds)
@@ -53,7 +59,6 @@ func NewTransactionWithSetup() *trxn.Transaction {
 }
 
 func TestSimpleReadWhenCommitted(t *testing.T) {
-
 	txn := NewTransactionWithSetup()
 	conn := NewDefaultRedisConnection()
 
@@ -95,7 +100,6 @@ func TestSimpleReadWhenCommitted(t *testing.T) {
 }
 
 func TestSimpleReadWhenCommittedFindEmpty(t *testing.T) {
-
 	txn1 := NewTransactionWithSetup()
 	conn := NewDefaultRedisConnection()
 
@@ -127,11 +131,9 @@ func TestSimpleReadWhenCommittedFindEmpty(t *testing.T) {
 	var result testutil.Person
 	err = txn1.Read("redis1", key, &result)
 	assert.EqualError(t, err, trxn.KeyNotFound.Error())
-
 }
 
 func TestSimpleReadWhenCommittedFindPrevious(t *testing.T) {
-
 	txn := NewTransactionWithSetup()
 	conn := NewDefaultRedisConnection()
 
@@ -398,7 +400,6 @@ func TestSimpleReadWhenPrepareExpired(t *testing.T) {
 }
 
 func TestSimpleReadWhenPrepareNotExpired(t *testing.T) {
-
 	dbItem1 := &redis.RedisItem{
 		RKey:          "item1",
 		RValue:        util.ToJSONString(testutil.NewTestItem("item1-pre1")),
@@ -473,7 +474,6 @@ func TestSimpleReadWhenDeleted(t *testing.T) {
 }
 
 func TestSimpleWriteAndRead(t *testing.T) {
-
 	// Start the transaction
 	txn := NewTransactionWithSetup()
 	err := txn.Start()
@@ -506,7 +506,6 @@ func TestSimpleWriteAndRead(t *testing.T) {
 }
 
 func TestSimpleDirectWrite(t *testing.T) {
-
 	conn := NewDefaultRedisConnection()
 	conn.Delete("John")
 
@@ -768,7 +767,6 @@ func TestSimpleDeleteTwice(t *testing.T) {
 }
 
 func TestDeleteWithRead(t *testing.T) {
-
 	conn := NewDefaultRedisConnection()
 	// clear the test data
 	conn.Delete("John")
@@ -793,7 +791,6 @@ func TestDeleteWithRead(t *testing.T) {
 }
 
 func TestDeleteWithoutRead(t *testing.T) {
-
 	preTxn := NewTransactionWithSetup()
 	dataPerson := testutil.NewDefaultPerson()
 	preTxn.Start()
@@ -812,7 +809,6 @@ func TestDeleteWithoutRead(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error committing transaction: %s", err)
 	}
-
 }
 
 func TestSimpleReadWriteDeleteThenRead(t *testing.T) {
@@ -936,7 +932,6 @@ func TestSimpleWriteDeleteWriteThenRead(t *testing.T) {
 }
 
 func TestRedisDatastore_ConcurrentWriteConflicts(t *testing.T) {
-
 	// clear the test data
 	conn := NewDefaultRedisConnection()
 	for _, item := range testutil.InputItemList {
@@ -955,7 +950,12 @@ func TestRedisDatastore_ConcurrentWriteConflicts(t *testing.T) {
 	successId := 0
 
 	concurrentCount := 1000
-	client, _ := NewClient("localhost:9000")
+	client, _ := NewClient(&discovery.ServiceDiscoveryConfig{
+		Type: discovery.HTTPDiscovery,
+		HTTP: &discovery.HTTPDiscoveryConfig{
+			RegistryPort: "localhost:9000",
+		},
+	})
 	txn := trxn.NewTransactionWithRemote(client, timesource.NewHybridTimeSource(10, 6))
 	rds := redis.NewRedisDatastore("redis1", conn)
 	txn.AddDatastore(rds)
@@ -1018,11 +1018,9 @@ func TestRedisDatastore_ConcurrentWriteConflicts(t *testing.T) {
 	}
 	err = postTxn.Commit()
 	assert.NoError(t, err)
-
 }
 
 func TestTxnWriteMultiRecord(t *testing.T) {
-
 	// clear the test data
 	conn := NewDefaultRedisConnection()
 	conn.Delete("item1")
@@ -1056,13 +1054,11 @@ func TestTxnWriteMultiRecord(t *testing.T) {
 	assert.Equal(t, "item1_new", resItem.Value)
 	postTxn.Read("redis1", "item2", &resItem)
 	assert.Equal(t, "item2_new", resItem.Value)
-
 }
 
 // ---|---------|--------|---------|------> time
 // item1_1  T_Start   item1_2   item1_3
 func TestLinkedReadAsCommitted(t *testing.T) {
-
 	item1_1 := testutil.NewTestItem("item1_1")
 	memItem1_1 := &redis.RedisItem{
 		RKey:          "item1",
@@ -1102,7 +1098,6 @@ func TestLinkedReadAsCommitted(t *testing.T) {
 	}
 
 	t.Run("read will fail due to MaxRecordLength=2", func(t *testing.T) {
-
 		txn := NewTransactionWithSetup()
 		conn := NewDefaultRedisConnection()
 		_, err := conn.PutItem("item1", memItem1_3)
@@ -1116,7 +1111,6 @@ func TestLinkedReadAsCommitted(t *testing.T) {
 	})
 
 	t.Run("read will success due to MaxRecordLength=3", func(t *testing.T) {
-
 		txn := NewTransactionWithSetup()
 		conn := NewDefaultRedisConnection()
 		conn.PutItem("item1", memItem1_3)
@@ -1131,7 +1125,6 @@ func TestLinkedReadAsCommitted(t *testing.T) {
 	})
 
 	t.Run("read will success due to MaxRecordLength > 3", func(t *testing.T) {
-
 		txn := NewTransactionWithSetup()
 		conn := NewDefaultRedisConnection()
 		conn.PutItem("item1", memItem1_3)
@@ -1147,13 +1140,11 @@ func TestLinkedReadAsCommitted(t *testing.T) {
 }
 
 func TestLinkedTruncate(t *testing.T) {
-
 	t.Cleanup(func() {
 		config.Config.MaxRecordLength = 2
 	})
 
 	t.Run("4 commits immediately after txn.Start() when MaxRecordLength = 2", func(t *testing.T) {
-
 		config.Config.MaxRecordLength = 2
 
 		conn := NewDefaultRedisConnection()
@@ -1221,7 +1212,6 @@ func TestLinkedTruncate(t *testing.T) {
 		})
 
 	t.Run("4 commits immediately after txn.Start() when MaxRecordLength = 5", func(t *testing.T) {
-
 		config.Config.MaxRecordLength = 5
 		expectedLen := min(4, config.Config.MaxRecordLength)
 		for i := 1; i <= 4; i++ {
@@ -1256,7 +1246,6 @@ func TestLinkedTruncate(t *testing.T) {
 
 // The transcation should ***roll back*** the record then conditionalUpdate properly
 func TestDirectWriteOnOutdatedPreparedRecordWithoutTSR(t *testing.T) {
-
 	// final linked record should be "item1-cur" -> "item1-pre2"
 	t.Run("the record has a valid Prev field", func(t *testing.T) {
 		conn := NewDefaultRedisConnection()
@@ -1353,12 +1342,10 @@ func TestDirectWriteOnOutdatedPreparedRecordWithoutTSR(t *testing.T) {
 		tarItem.SetVersion(util.AddToString(tarItem.Version(), 1))
 		assert.Equal(t, util.ToJSONString(tarItem), finalRedisItem.Prev())
 	})
-
 }
 
 // The transcation should ***roll forward*** the record then conditionalUpdate properly
 func TestDirectWriteOnOutdatedPreparedRecordWithTSR(t *testing.T) {
-
 	// final linked record should be "item2-cur" -> "item2-pre"
 	t.Run("the record has a valid Prev field", func(t *testing.T) {
 		conn := NewDefaultRedisConnection()
@@ -1461,12 +1448,10 @@ func TestDirectWriteOnOutdatedPreparedRecordWithTSR(t *testing.T) {
 		tarItem.SetTxnState(config.COMMITTED)
 		assert.Equal(t, util.ToJSONString(tarItem), finalRedisItem.Prev())
 	})
-
 }
 
 // The transaction should abort because version mismatch
 func TestDirectWriteOnPreparingRecord(t *testing.T) {
-
 	conn := NewDefaultRedisConnection()
 
 	tarItem := &redis.RedisItem{
@@ -1526,7 +1511,6 @@ func TestDirectWriteOnDeletedRecord(t *testing.T) {
 }
 
 func TestRollbackWhenReading(t *testing.T) {
-
 	item1Pre := &redis.RedisItem{
 		RKey:          "item1",
 		RValue:        util.ToJSONString(testutil.NewTestItem("item1-pre")),
@@ -1633,7 +1617,6 @@ func TestRollbackWhenWriting(t *testing.T) {
 		tarItem := item1Pre
 		tarItem.SetVersion("3")
 		assert.Equal(t, util.ToJSONString(tarItem), res.Prev())
-
 	})
 
 	t.Run("rollback an item with an invalid Prev field", func(t *testing.T) {
@@ -1677,7 +1660,6 @@ func TestRollbackWhenWriting(t *testing.T) {
 }
 
 func TestRollForwardWhenReading(t *testing.T) {
-
 	conn := NewDefaultRedisConnection()
 
 	tarItem := &redis.RedisItem{
@@ -1710,7 +1692,6 @@ func TestRollForwardWhenReading(t *testing.T) {
 }
 
 func TestRollForwardWhenWriting(t *testing.T) {
-
 	conn := NewDefaultRedisConnection()
 
 	tarItem := &redis.RedisItem{
@@ -1744,7 +1725,6 @@ func TestRollForwardWhenWriting(t *testing.T) {
 }
 
 func TestItemVersionUpdate(t *testing.T) {
-
 	t.Run("item version ++ after updated", func(t *testing.T) {
 		conn := NewDefaultRedisConnection()
 		dbItem := &redis.RedisItem{

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/oreo-dtx-lab/oreo/pkg/generator"
-	"github.com/oreo-dtx-lab/oreo/pkg/serializer"
+	"github.com/kkkzoz/oreo/pkg/generator"
+	"github.com/kkkzoz/oreo/pkg/serializer"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -57,6 +57,8 @@ type debug struct {
 
 	NativeMode bool
 
+	RuntimeAnalysisMode bool
+
 	HTTPAdditionalLatency time.Duration
 
 	ConnAdditionalLatency time.Duration
@@ -65,7 +67,6 @@ type debug struct {
 }
 
 type config struct {
-
 	// Mode specifies the mode of the transaction.
 	// It can be either REMOTE or LOCAL.
 	Mode Mode
@@ -117,6 +118,7 @@ var Debug = debug{
 	DebugMode:             false,
 	CherryGarciaMode:      false,
 	NativeMode:            false,
+	RuntimeAnalysisMode:   false,
 	HTTPAdditionalLatency: 0,
 	ConnAdditionalLatency: 0,
 	AssumptionCount:       0,

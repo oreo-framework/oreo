@@ -3,11 +3,12 @@ package integration
 import (
 	"time"
 
-	"github.com/oreo-dtx-lab/oreo/internal/mock"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/couchdb"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/mongo"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/redis"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/internal/mock"
+	"github.com/kkkzoz/oreo/pkg/datastore/couchdb"
+	"github.com/kkkzoz/oreo/pkg/datastore/mongo"
+	"github.com/kkkzoz/oreo/pkg/datastore/redis"
+	"github.com/kkkzoz/oreo/pkg/logger"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 const (
@@ -19,7 +20,6 @@ const (
 )
 
 func NewConnectionWithSetup(dsType string) txn.Connector {
-
 	var conn txn.Connector
 
 	if dsType == "redis" {
@@ -50,18 +50,13 @@ func NewConnectionWithSetup(dsType string) txn.Connector {
 			Password: "password",
 		})
 	}
-	conn.Connect()
+	err := conn.Connect()
+	logger.CheckAndLogError("Failed to connect to datastore", err)
 	return conn
 }
 
 func NewTransactionWithSetup(dsType string) *txn.Transaction {
 	txn := txn.NewTransaction()
-	if dsType == "memory" {
-		// conn := memory.NewMemoryConnection("localhost", 8321)
-		// mds := memory.NewMemoryDatastore("memory", conn)
-		// txn.AddDatastore(mds)
-		// txn.SetGlobalDatastore(mds)
-	}
 	if dsType == "redis" {
 		conn := redis.NewRedisConnection(&redis.ConnectionOptions{
 			Address:  "localhost:6379",
@@ -106,8 +101,8 @@ func NewTransactionWithSetup(dsType string) *txn.Transaction {
 }
 
 func NewTransactionWithMockConn(dsType string, limit int,
-	isReturned bool, networkDelay time.Duration, debugFunc func() error) *txn.Transaction {
-
+	isReturned bool, networkDelay time.Duration, debugFunc func() error,
+) *txn.Transaction {
 	txn := txn.NewTransaction()
 	if dsType == "redis" {
 		mockConn := mock.NewMockRedisConnection(

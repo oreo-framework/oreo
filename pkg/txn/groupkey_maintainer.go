@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/oreo-dtx-lab/oreo/internal/util"
-	"github.com/oreo-dtx-lab/oreo/pkg/config"
-	"github.com/oreo-dtx-lab/oreo/pkg/logger"
+	"github.com/kkkzoz/oreo/internal/util"
+	"github.com/kkkzoz/oreo/pkg/config"
+	"github.com/kkkzoz/oreo/pkg/logger"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -34,7 +34,7 @@ func (g *GroupKeyMaintainer) AddConnector(ds Datastorer) {
 }
 
 func (g *GroupKeyMaintainer) GetGroupKey(urls []string) ([]GroupKey, error) {
-	groupKeys := make([]GroupKey, len(urls))
+	groupKeys := make([]GroupKey, 0, len(urls))
 	var mu sync.Mutex
 	var eg errgroup.Group
 	for _, urll := range urls {
@@ -85,7 +85,6 @@ func (g *GroupKeyMaintainer) GetGroupKeyList(item DataItem) ([]GroupKey, error) 
 }
 
 func (g *GroupKeyMaintainer) CreateGroupKey(urls []string, state config.State) int {
-
 	resChan := make(chan error, len(urls))
 	for _, urll := range urls {
 		url := urll

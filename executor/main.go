@@ -1,7 +1,6 @@
 package main
 
 import (
-	"benchmark/pkg/benconfig"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,23 +14,23 @@ import (
 	"syscall"
 	"time"
 
+	"benchmark/pkg/benconfig" //nolint
 	"github.com/cristalhq/aconfig"
 	"github.com/cristalhq/aconfig/aconfigyaml"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/oreo-dtx-lab/oreo/pkg/config"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/cassandra"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/couchdb"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/dynamodb"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/mongo"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/redis"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/tikv"
-	"github.com/oreo-dtx-lab/oreo/pkg/network"
-	"github.com/oreo-dtx-lab/oreo/pkg/serializer"
-	"github.com/oreo-dtx-lab/oreo/pkg/timesource"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/pkg/config"
+	"github.com/kkkzoz/oreo/pkg/datastore/cassandra"
+	"github.com/kkkzoz/oreo/pkg/datastore/couchdb"
+	"github.com/kkkzoz/oreo/pkg/datastore/dynamodb"
+	"github.com/kkkzoz/oreo/pkg/datastore/mongo"
+	"github.com/kkkzoz/oreo/pkg/datastore/redis"
+	"github.com/kkkzoz/oreo/pkg/datastore/tikv"
+	"github.com/kkkzoz/oreo/pkg/logger"
+	"github.com/kkkzoz/oreo/pkg/network"
+	"github.com/kkkzoz/oreo/pkg/serializer"
+	"github.com/kkkzoz/oreo/pkg/timesource"
+	"github.com/kkkzoz/oreo/pkg/txn"
 	"github.com/valyala/fasthttp"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 var json2 = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -50,7 +49,12 @@ type Server struct {
 	committer network.Committer
 }
 
-func NewServer(port int, connMap map[string]txn.Connector, factory txn.DataItemFactory, timeSource timesource.TimeSourcer) *Server {
+func NewServer(
+	port int,
+	connMap map[string]txn.Connector,
+	factory txn.DataItemFactory,
+	timeSource timesource.TimeSourcer,
+) *Server {
 	reader := *network.NewReader(connMap, factory, serializer.NewJSON2Serializer(), network.NewCacher())
 	return &Server{
 		port:      port,
@@ -81,16 +85,15 @@ func (s *Server) Run() {
 
 	address := fmt.Sprintf(":%d", s.port)
 	// fmt.Println(banner)
-	Log.Infow("Server running", "address", address)
+	logger.Infow("Server running", "address", address)
 	log.Fatalf("Server failed: %v", fasthttp.ListenAndServe(address, router))
 }
 
 func (s *Server) pingHandler(ctx *fasthttp.RequestCtx) {
-	ctx.WriteString("pong")
+	_, _ = ctx.WriteString("pong")
 }
 
 func (s *Server) cacheHandler(ctx *fasthttp.RequestCtx) {
-
 	method := string(ctx.Method())
 
 	if method == "GET" {
@@ -110,13 +113,12 @@ func (s *Server) cacheHandler(ctx *fasthttp.RequestCtx) {
 	// 处理不支持的请求方法
 	ctx.SetStatusCode(fasthttp.StatusMethodNotAllowed)
 	ctx.SetBodyString("Method not allowed")
-
 }
 
 func (s *Server) readHandler(ctx *fasthttp.RequestCtx) {
 	startTime := time.Now()
 	defer func() {
-		Log.Debugw("Read request", "latency", time.Since(startTime))
+		logger.Debugw("Read request", "latency", time.Since(startTime))
 	}()
 
 	var req network.ReadRequest
@@ -126,7 +128,17 @@ func (s *Server) readHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	Log.Infow("Read request", "dsName", req.DsName, "key", req.Key, "startTime", req.StartTime, "config", req.Config)
+	logger.Infow(
+		"Read request",
+		"dsName",
+		req.DsName,
+		"key",
+		req.Key,
+		"startTime",
+		req.StartTime,
+		"config",
+		req.Config,
+	)
 
 	item, dataType, gk, err := s.reader.Read(req.DsName, req.Key, req.StartTime, req.Config, true)
 
@@ -161,25 +173,42 @@ func (s *Server) readHandler(ctx *fasthttp.RequestCtx) {
 		// fmt.Printf("Read response: %v\n", response)
 	}
 	respBytes, _ := json.Marshal(response)
-	ctx.Write(respBytes)
+	_, err = ctx.Write(respBytes)
+	logger.CheckAndLogError("Failed to write response", err)
 }
 
 func (s *Server) prepareHandler(ctx *fasthttp.RequestCtx) {
 	startTime := time.Now()
 	defer func() {
-		Log.Debugw("Prepare request", "latency", time.Since(startTime), "Topic", "CheckPoint")
+		logger.Debugw("Prepare request", "latency", time.Since(startTime), "Topic", "CheckPoint")
 	}()
 
 	var req network.PrepareRequest
 	// body := ctx.PostBody()
-	// Log.Infow("Prepare request", "body", string(body))
+	// logger.Infow("Prepare request", "body", string(body))
 	if err := json2.Unmarshal(ctx.PostBody(), &req); err != nil {
-		errMsg := fmt.Sprintf("Invalid prepare request body, error: %s\n Body: %v\n", err.Error(), string(ctx.PostBody()))
+		errMsg := fmt.Sprintf(
+			"Invalid prepare request body, error: %s\n Body: %v\n",
+			err.Error(),
+			string(ctx.PostBody()),
+		)
 		ctx.Error(errMsg, fasthttp.StatusBadRequest)
 		return
 	}
 
-	Log.Infow("Prepare request", "dsName", req.DsName, "itemList", req.ItemList, "startTime", req.StartTime, "config", req.Config, "validationMap", req.ValidationMap)
+	logger.Infow(
+		"Prepare request",
+		"dsName",
+		req.DsName,
+		"itemList",
+		req.ItemList,
+		"startTime",
+		req.StartTime,
+		"config",
+		req.Config,
+		"validationMap",
+		req.ValidationMap,
+	)
 
 	verMap, tCommit, err := s.committer.Prepare(req.DsName, req.ItemList,
 		req.StartTime, req.Config, req.ValidationMap)
@@ -197,13 +226,14 @@ func (s *Server) prepareHandler(ctx *fasthttp.RequestCtx) {
 		}
 	}
 	respBytes, _ := json2.Marshal(resp)
-	ctx.Write(respBytes)
+	_, err = ctx.Write(respBytes)
+	logger.CheckAndLogError("Failed to write response", err)
 }
 
 func (s *Server) commitHandler(ctx *fasthttp.RequestCtx) {
 	startTime := time.Now()
 	defer func() {
-		Log.Debugw("Commit request", "latency", time.Since(startTime))
+		logger.Debugw("Commit request", "latency", time.Since(startTime))
 	}()
 
 	var req network.CommitRequest
@@ -225,13 +255,14 @@ func (s *Server) commitHandler(ctx *fasthttp.RequestCtx) {
 		}
 	}
 	respBytes, _ := json.Marshal(resp)
-	ctx.Write(respBytes)
+	_, err = ctx.Write(respBytes)
+	logger.CheckAndLogError("Failed to write response", err)
 }
 
 func (s *Server) abortHandler(ctx *fasthttp.RequestCtx) {
 	startTime := time.Now()
 	defer func() {
-		Log.Debugw("Abort request", "latency", time.Since(startTime))
+		logger.Debugw("Abort request", "latency", time.Since(startTime))
 	}()
 
 	var req network.AbortRequest
@@ -253,7 +284,8 @@ func (s *Server) abortHandler(ctx *fasthttp.RequestCtx) {
 		}
 	}
 	respBytes, _ := json.Marshal(resp)
-	ctx.Write(respBytes)
+	_, err = ctx.Write(respBytes)
+	logger.CheckAndLogError("Failed to write response", err)
 }
 
 // const (
@@ -264,37 +296,39 @@ func (s *Server) abortHandler(ctx *fasthttp.RequestCtx) {
 // 	CouchPassword = "password"
 // )
 
-var port = 8000
-var poolSize = 60
-var traceFlag = false
-var pprofFlag = false
-var workloadType = ""
-var db_combination = ""
-var benConfigPath = ""
-var cg = false
-
-var Log *zap.SugaredLogger
-
 var (
-	benConfig = benconfig.BenchmarkConfig{}
+	port           = 8000
+	poolSize       = 60
+	traceFlag      = false
+	pprofFlag      = false
+	workloadType   = ""
+	db_combination = ""
+	benConfigPath  = ""
+	cg             = false
 )
+
+var benConfig = benconfig.BenchmarkConfig{}
 
 func main() {
 	parseFlag()
 	err := loadConfig()
 	if err != nil {
-		Log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	if pprofFlag {
 		cpuFile, err := os.Create("executor_cpu_profile.prof")
 		if err != nil {
-			fmt.Println("无法创建 CPU profile 文件:", err)
+			fmt.Println("Can not create CPU profile file:", err)
 			return
 		}
-		defer cpuFile.Close()
+		defer func() {
+			if err := cpuFile.Close(); err != nil {
+				fmt.Println("Can not close CPU profile file:", err)
+			}
+		}()
 		if err := pprof.StartCPUProfile(cpuFile); err != nil {
-			fmt.Println("无法启动 CPU profile:", err)
+			fmt.Println("Can not start CPU profile:", err)
 			return
 		}
 		defer pprof.StopCPUProfile()
@@ -339,9 +373,8 @@ func main() {
 
 	<-sigs
 
-	Log.Info("Shutting down server")
+	logger.Info("Shutting down server")
 	fmt.Printf("Cache: %v\n", server.reader.GetCacheStatistic())
-
 }
 
 func loadConfig() error {
@@ -361,7 +394,7 @@ func loadConfig() error {
 	}
 
 	if benConfig.TimeOracleUrl == "" {
-		Log.Fatal("Time Oracle URL must be specified")
+		logger.Fatal("Time Oracle URL must be specified")
 	}
 	return nil
 }
@@ -377,16 +410,13 @@ func parseFlag() {
 	flag.StringVar(&benConfigPath, "bc", "", "Benchmark Configuration Path")
 	flag.Parse()
 
-	newLogger()
-
 	if benConfigPath == "" {
-		log.Fatal("Benchmark Configuration Path must be specified")
+		logger.Fatal("Benchmark Configuration Path must be specified")
 	}
 
 	if workloadType == "ycsb" && db_combination == "" {
-		log.Fatal("Database Combination must be specified for YCSB workload")
+		logger.Fatal("Database Combination must be specified for YCSB workload")
 	}
-
 }
 
 func getConnMap() map[string]txn.Connector {
@@ -455,38 +485,11 @@ func getConnMap() map[string]txn.Connector {
 				tikvConn := getTiKVConn()
 				connMap["TiKV"] = tikvConn
 			default:
-				Log.Fatal("Invalid database combination")
+				logger.Fatal("Invalid database combination")
 			}
 		}
 	}
 	return connMap
-}
-
-func newLogger() {
-	conf := zap.NewDevelopmentConfig()
-
-	logLevel := os.Getenv("LOG")
-
-	switch logLevel {
-	case "DEBUG":
-		conf.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	case "INFO":
-		conf.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
-	case "WARN":
-		conf.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
-	case "ERROR":
-		conf.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
-	case "FATAL":
-		conf.Level = zap.NewAtomicLevelAt(zap.FatalLevel)
-	default:
-		conf.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
-	}
-
-	conf.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	conf.EncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
-	conf.EncoderConfig.MessageKey = "msg"
-	logger, _ := conf.Build()
-	Log = logger.Sugar()
 }
 
 func getKVRocksConn() *redis.RedisConnection {
@@ -497,7 +500,7 @@ func getKVRocksConn() *redis.RedisConnection {
 	})
 	err := kvConn.Connect()
 	if err != nil {
-		Log.Fatal(err)
+		logger.Fatal(err)
 	}
 	for i := 0; i < 100; i++ {
 		_, _ = kvConn.Get("ping")
@@ -514,7 +517,7 @@ func getCouchConn() *couchdb.CouchDBConnection {
 	})
 	err := couchConn.Connect()
 	if err != nil {
-		Log.Fatal(err)
+		logger.Fatal(err)
 	}
 	return couchConn
 }
@@ -527,7 +530,7 @@ func getMongoConn(id int) *mongo.MongoConnection {
 	case 2:
 		address = benConfig.MongoDBAddr2
 	default:
-		Log.Fatal("Invalid mongo id")
+		logger.Fatal("Invalid mongo id")
 	}
 	mongoConn := mongo.NewMongoConnection(&mongo.ConnectionOptions{
 		Address:        address,
@@ -538,19 +541,18 @@ func getMongoConn(id int) *mongo.MongoConnection {
 	})
 	err := mongoConn.Connect()
 	if err != nil {
-		Log.Fatal(err)
+		logger.Fatal(err)
 	}
 	return mongoConn
 }
 
 func getRedisConn(id int) *redis.RedisConnection {
-
 	address := ""
 	switch id {
 	case 1:
 		address = benConfig.RedisAddr
 	default:
-		Log.Fatal("Invalid redis id")
+		logger.Fatal("Invalid redis id")
 	}
 
 	redisConn := redis.NewRedisConnection(&redis.ConnectionOptions{
@@ -560,7 +562,7 @@ func getRedisConn(id int) *redis.RedisConnection {
 	})
 	err := redisConn.Connect()
 	if err != nil {
-		Log.Fatal(err)
+		logger.Fatal(err)
 	}
 	return redisConn
 }
@@ -572,7 +574,7 @@ func getCassandraConn() *cassandra.CassandraConnection {
 	})
 	err := cassConn.Connect()
 	if err != nil {
-		Log.Fatal(err)
+		logger.Fatal(err)
 	}
 	return cassConn
 }
@@ -584,7 +586,7 @@ func getDynamoConn() *dynamodb.DynamoDBConnection {
 	})
 	err := dynamoConn.Connect()
 	if err != nil {
-		Log.Fatal(err)
+		logger.Fatal(err)
 	}
 	return dynamoConn
 }
@@ -595,7 +597,7 @@ func getTiKVConn() *tikv.TiKVConnection {
 	})
 	err := tikvConn.Connect()
 	if err != nil {
-		Log.Fatal(err)
+		logger.Fatal(err)
 	}
 	return tikvConn
 }

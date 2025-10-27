@@ -1,12 +1,6 @@
 package main
 
 import (
-	"benchmark/db/couch"
-	mongoDB "benchmark/db/mongo"
-	"benchmark/db/oreo"
-	"benchmark/db/redis"
-	"benchmark/pkg/workload"
-	"benchmark/ycsb"
 	"context"
 	"fmt"
 	"log"
@@ -15,14 +9,20 @@ import (
 	"sync"
 	"time"
 
+	"benchmark/db/couch"
+	mongoDB "benchmark/db/mongo"
+	"benchmark/db/oreo"
+	"benchmark/db/redis"
+	"benchmark/pkg/workload"
+	"benchmark/ycsb"
 	"github.com/go-kivik/kivik/v4"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/cassandra"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/couchdb"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/dynamodb"
-	mongoCo "github.com/oreo-dtx-lab/oreo/pkg/datastore/mongo"
-	redisCo "github.com/oreo-dtx-lab/oreo/pkg/datastore/redis"
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/tikv"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/pkg/datastore/cassandra"
+	"github.com/kkkzoz/oreo/pkg/datastore/couchdb"
+	"github.com/kkkzoz/oreo/pkg/datastore/dynamodb"
+	mongoCo "github.com/kkkzoz/oreo/pkg/datastore/mongo"
+	redisCo "github.com/kkkzoz/oreo/pkg/datastore/redis"
+	"github.com/kkkzoz/oreo/pkg/datastore/tikv"
+	"github.com/kkkzoz/oreo/pkg/txn"
 	goredis "github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -161,14 +161,13 @@ func NativeRealisticCreator(workloadType string) (ycsb.DBCreator, error) {
 }
 
 func OreoRealisticCreator(workloadType string, isRemote bool, mode string) (ycsb.DBCreator, error) {
-
 	if workloadType == "iot" {
 		redisConn := NewRedisConn()
 		mongoConn := NewMongoDBConn(1)
 
 		connMap := map[string]txn.Connector{
-			"Redis":   redisConn,
-			"MongoDB": mongoConn,
+			"Redis":    redisConn,
+			"MongoDB2": mongoConn,
 		}
 		return &oreo.OreoRealisticCreator{
 			IsRemote:            isRemote,
@@ -177,15 +176,35 @@ func OreoRealisticCreator(workloadType string, isRemote bool, mode string) (ycsb
 			Mode:                mode,
 		}, nil
 	}
-	if workloadType == "social" {
+	if workloadType == "hotel" {
 		redisConn := NewRedisConn()
-		mongoConn := NewMongoDBConn(1)
+		mongoConn := NewMongoDBConn(2)
 		cassandraConn := NewCassandraConn()
 
 		connMap := map[string]txn.Connector{
 			"Redis":     redisConn,
-			"MongoDB":   mongoConn,
+			"MongoDB2":  mongoConn,
 			"Cassandra": cassandraConn,
+		}
+		return &oreo.OreoRealisticCreator{
+			IsRemote:            isRemote,
+			ConnMap:             connMap,
+			GlobalDatastoreName: "Redis",
+			Mode:                mode,
+		}, nil
+
+	}
+	if workloadType == "social" {
+		redisConn := NewRedisConn()
+		mongoConn := NewMongoDBConn(2)
+		cassandraConn := NewCassandraConn()
+		kvrocksConn := NewKVRocksConn()
+
+		connMap := map[string]txn.Connector{
+			"Redis":     redisConn,
+			"MongoDB2":  mongoConn,
+			"Cassandra": cassandraConn,
+			"KVRocks":   kvrocksConn,
 		}
 		return &oreo.OreoRealisticCreator{
 			IsRemote:            isRemote,
@@ -319,7 +338,8 @@ func OreoRedisCreator(isRemote bool) (ycsb.DBCreator, error) {
 	return &oreo.OreoRedisCreator{
 		IsRemote: isRemote,
 		ConnList: []*redisCo.RedisConnection{
-			redisConn1},
+			redisConn1,
+		},
 	}, nil
 }
 
@@ -355,7 +375,9 @@ func OreoMongoCreator(isRemote bool) (ycsb.DBCreator, error) {
 	return &oreo.OreoMongoCreator{
 		IsRemote: isRemote,
 		ConnList: []*mongoCo.MongoConnection{
-			mongoConn1, mongoConn2}}, nil
+			mongoConn1, mongoConn2,
+		},
+	}, nil
 }
 
 // TODO: Add isRemote logic
@@ -384,12 +406,12 @@ func OreoCouchCreator(isRemote bool) (ycsb.DBCreator, error) {
 
 	return &oreo.OreoCouchCreator{
 		ConnList: []*couchdb.CouchDBConnection{
-			couchConn1}}, nil
-
+			couchConn1,
+		},
+	}, nil
 }
 
 func OreoCreator(pattern string, isRemote bool) (ycsb.DBCreator, error) {
-
 	if pattern == "mm" {
 		mongoConn1 := mongoCo.NewMongoConnection(&mongoCo.ConnectionOptions{
 			Address:        benConfig.MongoDBAddr1,

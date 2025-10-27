@@ -2,6 +2,7 @@ package couchdb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -9,12 +10,10 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/go-kivik/kivik/v4"
-	"github.com/oreo-dtx-lab/oreo/internal/util"
-	"github.com/oreo-dtx-lab/oreo/pkg/config"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
-
 	"github.com/go-kivik/kivik/v4/couchdb"
-	_ "github.com/go-kivik/kivik/v4/couchdb"
+	"github.com/kkkzoz/oreo/internal/util"
+	"github.com/kkkzoz/oreo/pkg/config"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 var _ txn.Connector = (*CouchDBConnection)(nil)
@@ -43,36 +42,55 @@ type ConnectionOptions struct {
 	DBName   string
 }
 
+var defaultOptions = ConnectionOptions{
+	Address:  "http://admin:password@localhost:5984",
+	DBName:   "oreo",
+	Username: "admin",
+	Password: "password",
+}
+
+// NewCouchDBConnection creates a new CouchDB connection.
 func NewCouchDBConnection(config *ConnectionOptions) *CouchDBConnection {
-	if config == nil {
-		config = &ConnectionOptions{
-			Address:  "http://admin:password@localhost:5984",
-			DBName:   "oreo",
-			Username: "admin",
-			Password: "password",
+	// Start with a copy of the default configuration.
+	finalConfig := defaultOptions
+
+	// If the user provided a configuration, layer their values on top.
+	if config != nil {
+		if config.Address != "" {
+			finalConfig.Address = config.Address
+		}
+		if config.DBName != "" {
+			finalConfig.DBName = config.DBName
+		}
+		if config.Username != "" {
+			finalConfig.Username = config.Username
+		}
+		if config.Password != "" {
+			finalConfig.Password = config.Password
 		}
 	}
-	if config.Address == "" {
-		config.Address = "http://admin:password@localhost:5984"
-	}
 
-	client, _ := kivik.New("couch", config.Address, couchdb.OptionHTTPClient(
+	dsn := fmt.Sprintf(
+		"http://%s:%s@%s/",
+		finalConfig.Username,
+		finalConfig.Password,
+		finalConfig.Address,
+	)
+
+	client, _ := kivik.New("couch", dsn, couchdb.OptionHTTPClient(
 		httpClient,
 	))
 
-	// Set the basic authorization header
-
 	return &CouchDBConnection{
 		client:       client,
-		Address:      config.Address,
-		config:       *config,
+		Address:      finalConfig.Address,
+		config:       finalConfig,
 		hasConnected: false,
 	}
 }
 
-// Connect establishes a connection to the CouchDB server and selects database
+// Connect establishes a connection to the CouchDB server and selects the database.
 func (r *CouchDBConnection) Connect() error {
-
 	if r.hasConnected {
 		return nil
 	}
@@ -103,6 +121,8 @@ func (r *CouchDBConnection) Connect() error {
 	return nil
 }
 
+// GetItem retrieves a structured transaction item from CouchDB.
+// It returns a txn.DataItem, which represents a full document with transaction metadata.
 func (r *CouchDBConnection) GetItem(key string) (txn.DataItem, error) {
 	if !r.hasConnected {
 		return &CouchDBItem{}, fmt.Errorf("not connected to CouchDB")
@@ -124,6 +144,7 @@ func (r *CouchDBConnection) GetItem(key string) (txn.DataItem, error) {
 	return &value, nil
 }
 
+// PutItem inserts or updates a transaction item in CouchDB.
 func (r *CouchDBConnection) PutItem(key string, value txn.DataItem) (string, error) {
 	if !r.hasConnected {
 		return "", fmt.Errorf("not connected to CouchDB")
@@ -139,7 +160,13 @@ func (r *CouchDBConnection) PutItem(key string, value txn.DataItem) (string, err
 	return rev, nil
 }
 
-func (r *CouchDBConnection) ConditionalUpdate(key string, value txn.DataItem, doCreate bool) (string, error) {
+// ConditionalUpdate atomically updates an item if the revision matches.
+// If doCreate is true, it will create the item if it does not exist.
+func (r *CouchDBConnection) ConditionalUpdate(
+	key string,
+	value txn.DataItem,
+	doCreate bool,
+) (string, error) {
 	if !r.hasConnected {
 		return "", fmt.Errorf("not connected to CouchDB")
 	}
@@ -175,7 +202,12 @@ func (r *CouchDBConnection) ConditionalUpdate(key string, value txn.DataItem, do
 	return newVer, nil
 }
 
-func (r *CouchDBConnection) ConditionalCommit(key string, version string, tCommit int64) (string, error) {
+// ConditionalCommit atomically commits a transaction if the revision matches.
+func (r *CouchDBConnection) ConditionalCommit(
+	key string,
+	version string,
+	tCommit int64,
+) (string, error) {
 	if !r.hasConnected {
 		return "", fmt.Errorf("not connected to CouchDB")
 	}
@@ -185,7 +217,6 @@ func (r *CouchDBConnection) ConditionalCommit(key string, version string, tCommi
 
 	var existing CouchDBItem
 	err := r.db.Get(context.Background(), key).ScanDoc(&existing)
-
 	if err != nil {
 		return "", errors.New(txn.VersionMismatch)
 	}
@@ -201,6 +232,7 @@ func (r *CouchDBConnection) ConditionalCommit(key string, version string, tCommi
 	return newVer, nil
 }
 
+// AtomicCreate creates a key-value pair if the key does not already exist.
 func (r *CouchDBConnection) AtomicCreate(name string, value any) (string, error) {
 	if !r.hasConnected {
 		return "", fmt.Errorf("not connected to CouchDB")
@@ -221,7 +253,8 @@ func (r *CouchDBConnection) AtomicCreate(name string, value any) (string, error)
 	return "", nil
 }
 
-// Retrieve the value associated with the given key
+// Get retrieves a simple string value from a document.
+// This is a general-purpose getter, distinct from GetItem, which retrieves a structured txn.DataItem.
 func (r *CouchDBConnection) Get(name string) (string, error) {
 	if !r.hasConnected {
 		return "", fmt.Errorf("not connected to CouchDB")
@@ -231,17 +264,37 @@ func (r *CouchDBConnection) Get(name string) (string, error) {
 	}
 
 	row := r.db.Get(context.Background(), name)
-	var value map[string]string
+	var value map[string]interface{}
 	if err := row.ScanDoc(&value); err != nil {
 		if kivik.HTTPStatus(err) == http.StatusNotFound {
 			return "", errors.New(txn.KeyNotFound)
 		}
 		return "", err
 	}
-	return value["value"], nil
+
+	// Check if it's wrapped in a "value" field (for simple string storage)
+	if val, exists := value["value"]; exists {
+		if strVal, ok := val.(string); ok {
+			return strVal, nil
+		}
+		return fmt.Sprintf("%v", val), nil
+	}
+
+	// If not wrapped, it means the JSON was directly parsed by CouchDB
+	// We need to reconstruct the original JSON by removing CouchDB metadata
+	delete(value, "_id")
+	delete(value, "_rev")
+
+	// Re-serialize to JSON string
+	jsonBytes, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonBytes), nil
 }
 
-// Store the given value with the specified name (key)
+// Put sets the value for a given key, creating or updating the document.
 func (r *CouchDBConnection) Put(name string, value interface{}) error {
 	if !r.hasConnected {
 		return fmt.Errorf("not connected to CouchDB")
@@ -268,7 +321,7 @@ func (r *CouchDBConnection) Put(name string, value interface{}) error {
 	return nil
 }
 
-// Delete the specified key
+// Delete removes a document from CouchDB.
 func (r *CouchDBConnection) Delete(name string) error {
 	if !r.hasConnected {
 		return fmt.Errorf("not connected to CouchDB")
@@ -285,10 +338,16 @@ func (r *CouchDBConnection) Delete(name string) error {
 	var rev Item
 
 	if err := row.ScanDoc(&rev); err != nil {
+		if kivik.HTTPStatus(err) == http.StatusNotFound {
+			return nil
+		}
 		return err
 	}
 	_, err := r.db.Delete(context.Background(), name, rev.Rev)
 	if err != nil {
+		if kivik.HTTPStatus(err) == http.StatusNotFound {
+			return nil
+		}
 		return err
 	}
 	return nil

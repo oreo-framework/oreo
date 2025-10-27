@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/oreo-dtx-lab/oreo/internal/util"
-	"github.com/oreo-dtx-lab/oreo/pkg/config"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/internal/util"
+	"github.com/kkkzoz/oreo/pkg/config"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 var _ txn.DataItem = (*CouchDBItem)(nil)
@@ -27,7 +27,7 @@ type CouchDBItem struct {
 func NewCouchDBItem(options txn.ItemOptions) *CouchDBItem {
 	return &CouchDBItem{
 		CKey:          options.Key,
-		CValue:        options.Value,
+		CValue:        options.Value.(string),
 		CGroupKeyList: options.GroupKeyList,
 		CTxnState:     options.TxnState,
 		CTValid:       options.TValid,

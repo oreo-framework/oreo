@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/mongo"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/pkg/datastore/mongo"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 var _ txn.Connector = (*MockMongoConnection)(nil)
@@ -24,7 +24,8 @@ type MockMongoConnection struct {
 }
 
 func NewMockMongoConnection(address string, port int, username string, password string, limit int,
-	isReturned bool, networkDelay time.Duration, debugFunc func() error) *MockMongoConnection {
+	isReturned bool, networkDelay time.Duration, debugFunc func() error,
+) *MockMongoConnection {
 	conn := mongo.NewMongoConnection(&mongo.ConnectionOptions{
 		Address:        fmt.Sprintf("mongodb://%s:%d", address, port),
 		Username:       username,
@@ -55,14 +56,18 @@ func (m *MockMongoConnection) Get(name string) (string, error) {
 	return m.MongoConnection.Get(name)
 }
 
-func (m *MockMongoConnection) ConditionalUpdate(key string, value txn.DataItem, doCreate bool) (string, error) {
+func (m *MockMongoConnection) ConditionalUpdate(
+	key string,
+	value txn.DataItem,
+	doCreate bool,
+) (string, error) {
 	time.Sleep(m.networkDelay)
 	defer func() { m.debugCounter--; m.PutTimes++ }()
 	if m.debugCounter == 0 {
 		if m.isReturned {
 			return "", m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.MongoConnection.ConditionalUpdate(key, value, doCreate)
@@ -75,7 +80,7 @@ func (m *MockMongoConnection) PutItem(key string, value txn.DataItem) (string, e
 		if m.isReturned {
 			return "", m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.MongoConnection.PutItem(key, value)
@@ -88,7 +93,7 @@ func (m *MockMongoConnection) Put(name string, value any) error {
 		if m.isReturned {
 			return m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.MongoConnection.Put(name, value)
@@ -101,7 +106,7 @@ func (m *MockMongoConnection) Delete(name string) error {
 		if m.isReturned {
 			return m.debugFunc()
 		} else {
-			m.debugFunc()
+			_ = m.debugFunc()
 		}
 	}
 	return m.MongoConnection.Delete(name)

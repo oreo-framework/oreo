@@ -14,6 +14,7 @@ type WorkloadParameter struct {
 	TxnOperationGroup int     `yaml:"txnoperationgroup"`
 	MaxLoadBatchSize  int     `yaml:"max_load_batch_size"`
 	ZipfianConstant   float64 `yaml:"zipfian_constant"`
+	MaxRecordLength   int     `yaml:"max_record_length"`
 
 	ReadProportion            float64 `yaml:"readproportion"`
 	UpdateProportion          float64 `yaml:"updateproportion"`
@@ -31,20 +32,25 @@ type WorkloadParameter struct {
 	// These parameters are for the data distribution test
 	InvolvedDBNum       int     `yaml:"involveddbnum"`
 	GlobalDatastoreName string  `yaml:"globaldatastorename"`
-	Redis1Proportion    float64 `yaml:"redis1proportion" oreo:"Redis"`
-	Mongo1Proportion    float64 `yaml:"mongo1proportion" oreo:"MongoDB1"`
-	Mongo2Proportion    float64 `yaml:"mongo2proportion" oreo:"MongoDB2"`
-	KVRocksProportion   float64 `yaml:"kvrocksproportion" oreo:"KVRocks"`
-	CouchDBProportion   float64 `yaml:"couchdbproportion" oreo:"CouchDB"`
+	Redis1Proportion    float64 `yaml:"redis1proportion"    oreo:"Redis"`
+	Mongo1Proportion    float64 `yaml:"mongo1proportion"    oreo:"MongoDB1"`
+	Mongo2Proportion    float64 `yaml:"mongo2proportion"    oreo:"MongoDB2"`
+	KVRocksProportion   float64 `yaml:"kvrocksproportion"   oreo:"KVRocks"`
+	CouchDBProportion   float64 `yaml:"couchdbproportion"   oreo:"CouchDB"`
 	CassandraProportion float64 `yaml:"cassandraproportion" oreo:"Cassandra"`
-	DynamoDBProportion  float64 `yaml:"dynamodbproportion" oreo:"DynamoDB"`
-	TiKVProportion      float64 `yaml:"tikvproportion" oreo:"TiKV"`
+	DynamoDBProportion  float64 `yaml:"dynamodbproportion"  oreo:"DynamoDB"`
+	TiKVProportion      float64 `yaml:"tikvproportion"      oreo:"TiKV"`
 
-	Task1Proportion float64 `yaml:"task1proportion"`
-	Task2Proportion float64 `yaml:"task2proportion"`
-	Task3Proportion float64 `yaml:"task3proportion"`
-	Task4Proportion float64 `yaml:"task4proportion"`
-	Task5Proportion float64 `yaml:"task5proportion"`
+	Task1Proportion  float64 `yaml:"task1proportion"`
+	Task2Proportion  float64 `yaml:"task2proportion"`
+	Task3Proportion  float64 `yaml:"task3proportion"`
+	Task4Proportion  float64 `yaml:"task4proportion"`
+	Task5Proportion  float64 `yaml:"task5proportion"`
+	Task6Proportion  float64 `yaml:"task6proportion"`
+	Task7Proportion  float64 `yaml:"task7proportion"`
+	Task8Proportion  float64 `yaml:"task8proportion"`
+	Task9Proportion  float64 `yaml:"task9proportion"`
+	Task10Proportion float64 `yaml:"task10proportion"`
 }
 
 // ----------------------------------------------------------------------------

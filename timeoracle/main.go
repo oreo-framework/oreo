@@ -5,17 +5,16 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/oreo-dtx-lab/oreo/pkg/timesource"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/kkkzoz/oreo/pkg/logger"
+	"github.com/kkkzoz/oreo/pkg/timesource"
 )
 
-var port int
-var oracleType string
-var Log *zap.SugaredLogger
+var (
+	port       int
+	oracleType string
+)
 
 type TimeOracleServer struct {
 	oracle timesource.TimeSourcer
@@ -26,17 +25,23 @@ type TimeOracleServer struct {
 func (t TimeOracleServer) handleTimestamp(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	defer func() {
-		Log.Debugw("handleTimestamp", "LatencyInFunction", time.Since(startTime).Microseconds(), "Topic", "CheckPoint")
+		logger.Debugw(
+			"handleTimestamp",
+			"LatencyInFunction",
+			time.Since(startTime).Microseconds(),
+			"Topic",
+			"CheckPoint",
+		)
 	}()
 	timestamp, _ := t.oracle.GetTime("pattern")
-	w.Write([]byte(fmt.Sprintf("%d", timestamp)))
+	_, err := fmt.Fprintf(w, "%d", timestamp)
+	logger.CheckAndLogError("Failed to write timestamp response", err)
 }
 
 func main() {
 	flag.IntVar(&port, "p", 8010, "HTTP server port number")
 	flag.StringVar(&oracleType, "type", "hybrid", "Time Oracle Implementaion Type")
 	flag.Parse()
-	newLogger()
 
 	var oracle timesource.TimeSourcer
 	switch oracleType {
@@ -62,31 +67,4 @@ func main() {
 	serverAddress := fmt.Sprintf(":%d", server.port)
 	fmt.Printf("Server listening on %s\n", serverAddress)
 	log.Fatal(http.ListenAndServe(serverAddress, nil))
-}
-
-func newLogger() {
-	conf := zap.NewDevelopmentConfig()
-
-	logLevel := os.Getenv("LOG")
-
-	switch logLevel {
-	case "DEBUG":
-		conf.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	case "INFO":
-		conf.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
-	case "WARN":
-		conf.Level = zap.NewAtomicLevelAt(zap.WarnLevel)
-	case "ERROR":
-		conf.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
-	case "FATAL":
-		conf.Level = zap.NewAtomicLevelAt(zap.FatalLevel)
-	default:
-		conf.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
-	}
-
-	conf.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	conf.EncoderConfig.EncodeTime = zapcore.RFC3339TimeEncoder
-	conf.EncoderConfig.MessageKey = "msg"
-	logger, _ := conf.Build()
-	Log = logger.Sugar()
 }

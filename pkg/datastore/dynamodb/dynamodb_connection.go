@@ -14,10 +14,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/go-errors/errors"
-	"github.com/oreo-dtx-lab/oreo/internal/util"
-	oreoconfig "github.com/oreo-dtx-lab/oreo/pkg/config"
-	"github.com/oreo-dtx-lab/oreo/pkg/logger"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/internal/util"
+	oreoconfig "github.com/kkkzoz/oreo/pkg/config"
+	"github.com/kkkzoz/oreo/pkg/logger"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 var _ txn.Connector = (*DynamoDBConnection)(nil)
@@ -153,7 +153,11 @@ func (d *DynamoDBConnection) PutItem(key string, value txn.DataItem) (string, er
 	return "", nil
 }
 
-func (d *DynamoDBConnection) ConditionalUpdate(key string, value txn.DataItem, doCreat bool) (string, error) {
+func (d *DynamoDBConnection) ConditionalUpdate(
+	key string,
+	value txn.DataItem,
+	doCreat bool,
+) (string, error) {
 	if !d.hasConnected {
 		return "", errors.Errorf("not connected to DynamoDB")
 	}
@@ -206,7 +210,6 @@ func (d *DynamoDBConnection) ConditionalUpdate(key string, value txn.DataItem, d
 		ExpressionAttributeValues: exprAttrValues,
 		ConditionExpression:       aws.String("#ver = :oldver"),
 	})
-
 	if err != nil {
 		var ccf *types.ConditionalCheckFailedException
 		if errors.As(err, &ccf) {
@@ -218,7 +221,11 @@ func (d *DynamoDBConnection) ConditionalUpdate(key string, value txn.DataItem, d
 	return newVer, nil
 }
 
-func (d *DynamoDBConnection) ConditionalCommit(key string, version string, tCommit int64) (string, error) {
+func (d *DynamoDBConnection) ConditionalCommit(
+	key string,
+	version string,
+	tCommit int64,
+) (string, error) {
 	if !d.hasConnected {
 		return "", errors.Errorf("not connected to DynamoDB")
 	}
@@ -253,7 +260,6 @@ func (d *DynamoDBConnection) ConditionalCommit(key string, version string, tComm
 		ExpressionAttributeValues: exprAttrValues,
 		ConditionExpression:       aws.String("#ver = :oldver"),
 	})
-
 	if err != nil {
 		var ccf *types.ConditionalCheckFailedException
 		if errors.As(err, &ccf) {
@@ -283,7 +289,6 @@ func (d *DynamoDBConnection) AtomicCreate(key string, value any) (string, error)
 		},
 		ConditionExpression: aws.String("attribute_not_exists(ID)"),
 	})
-
 	if err != nil {
 		var ccf *types.ConditionalCheckFailedException
 		if errors.As(err, &ccf) {
@@ -300,7 +305,10 @@ func (d *DynamoDBConnection) AtomicCreate(key string, value any) (string, error)
 	return "", nil
 }
 
-func (d *DynamoDBConnection) atomicCreateDynamoItem(key string, value txn.DataItem) (string, error) {
+func (d *DynamoDBConnection) atomicCreateDynamoItem(
+	key string,
+	value txn.DataItem,
+) (string, error) {
 	newVer := util.AddToString(value.Version(), 1)
 
 	av, err := attributevalue.MarshalMap(DynamoDBItem{
@@ -324,7 +332,6 @@ func (d *DynamoDBConnection) atomicCreateDynamoItem(key string, value txn.DataIt
 		Item:                av,
 		ConditionExpression: aws.String("attribute_not_exists(ID)"),
 	})
-
 	if err != nil {
 		var ccf *types.ConditionalCheckFailedException
 		if errors.As(err, &ccf) {
@@ -408,29 +415,29 @@ func (d *DynamoDBConnection) Delete(key string) error {
 	return err
 }
 
-func buildCreateTableInput(tableName string) *dynamodb.CreateTableInput {
-	return &dynamodb.CreateTableInput{
-		AttributeDefinitions: []types.AttributeDefinition{
-			{
-				AttributeName: aws.String("PK"),
-				AttributeType: types.ScalarAttributeTypeS,
-			},
-			{
-				AttributeName: aws.String("SK"),
-				AttributeType: types.ScalarAttributeTypeS,
-			},
-		},
-		KeySchema: []types.KeySchemaElement{
-			{
-				AttributeName: aws.String("PK"),
-				KeyType:       types.KeyTypeHash,
-			},
-			{
-				AttributeName: aws.String("SK"),
-				KeyType:       types.KeyTypeRange,
-			},
-		},
-		TableName:   aws.String(tableName),
-		BillingMode: types.BillingModePayPerRequest,
-	}
-}
+// func buildCreateTableInput(tableName string) *dynamodb.CreateTableInput {
+// 	return &dynamodb.CreateTableInput{
+// 		AttributeDefinitions: []types.AttributeDefinition{
+// 			{
+// 				AttributeName: aws.String("PK"),
+// 				AttributeType: types.ScalarAttributeTypeS,
+// 			},
+// 			{
+// 				AttributeName: aws.String("SK"),
+// 				AttributeType: types.ScalarAttributeTypeS,
+// 			},
+// 		},
+// 		KeySchema: []types.KeySchemaElement{
+// 			{
+// 				AttributeName: aws.String("PK"),
+// 				KeyType:       types.KeyTypeHash,
+// 			},
+// 			{
+// 				AttributeName: aws.String("SK"),
+// 				KeyType:       types.KeyTypeRange,
+// 			},
+// 		},
+// 		TableName:   aws.String(tableName),
+// 		BillingMode: types.BillingModePayPerRequest,
+// 	}
+// }

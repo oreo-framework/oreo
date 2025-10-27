@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/oreo-dtx-lab/oreo/pkg/datastore/tikv"
-	"github.com/oreo-dtx-lab/oreo/pkg/txn"
+	"github.com/kkkzoz/oreo/pkg/datastore/tikv"
+	"github.com/kkkzoz/oreo/pkg/txn"
 )
 
 func main() {
@@ -83,8 +83,6 @@ func main() {
 				successNum++
 				fmt.Printf("success id: %d  newVer: %s\n", ii, newVer)
 				mu.Unlock()
-			} else {
-				// fmt.Printf("failed id: %d\n", ii)
 			}
 		}(i)
 	}
@@ -102,7 +100,7 @@ func main() {
 	successNum = 0
 	wg.Add(num)
 	key = "GroupKey"
-	conn.Delete(key)
+	_ = conn.Delete(key)
 
 	for i := 0; i < num; i++ {
 		go func(idx int) {
