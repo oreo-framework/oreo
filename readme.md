@@ -4,11 +4,10 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/oreo-dtx-lab/oreo.svg)](https://pkg.go.dev/github.com/oreo-framework/oreo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This repository is dedicated to sharing the implementation of Oreo for the ICDE 2026 paper entitled: Oreo: A Decentralized Coordinated Transaction Framework across NoSQL Data Stores.
+This repository is dedicated to sharing the implementation of Oreo for the ICDE 2026 paper entitled: **Oreo: A Decentralized Coordinated Transaction Framework across NoSQL Data Stores**.
 
 <div align="center">
-
-![Logo](./assets/img/logo.png)
+  <img src="./assets/img/logo.png" width="300" alt="logo">
 </div>
 
 ## Table of Contents
@@ -33,7 +32,11 @@ This repository is dedicated to sharing the implementation of Oreo for the ICDE 
 
 ## Oreo Structure
 
-![Project Structure](./assets/img/sys-arch.png)
+<!--![Project Structure](./assets/img/sys-arch.png)-->
+
+<div align="center">
+  <img src="./assets/img/sys-arch.png" width="500" alt="logo">
+</div>
 
 ## Project Structure
 
@@ -55,7 +58,7 @@ This repository is dedicated to sharing the implementation of Oreo for the ICDE 
 
 ### Topology
 
-At least 7 servers are required, with 3 serving as the Client Node (`node1`) and the other 4 as DB Nodes (`node2` - `node5`). Executors are deployed as containers on the DB Nodes. The timeoracle can be deployed on the DB Nodes or on separate dedicated nodes.
+At least 7 servers are required, with 3 serving as the Client Node (`node1`, `node6`, `node7`) and the other 4 as DB Nodes (`node2` - `node5`). Executors are deployed as containers on the DB Nodes. The timeoracle can be deployed on the DB Nodes or on separate dedicated nodes.
 
 > `node1` acts as the control center of this experiment, so you can clone this repo to your `node1`,
 
@@ -80,6 +83,12 @@ Host node4
 Host node5
     HostName 10.206.206.6
     User root
+Host node6
+    HostName 10.206.206.7
+    User root
+Host node7
+    HostName 10.206.206.8
+    User root
 ```
 
 The environment on `node1` needs to be configured manually. The environment for other nodes can be set up through:
@@ -93,7 +102,7 @@ cd oreo/benchmarks/cmd/scripts/setup
 ./update-essentials.sh
 ```
 
-To simulate a real network environment, please enable 3 ms of network latency on `node1` using the command below:
+To simulate a real network environment, please enable 3 ms of network latency on client nodes using the command below:
 
 ```shell
 cd oreo/benchmarks/cmd/scripts/setup
